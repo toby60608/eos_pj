@@ -70,17 +70,17 @@ static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t 
     strcpy(component, buf);
     component = strtok(component, "_");
 
-    if (strstr(component), "btn")!=NULL)
-        {
+    if (strstr(component, "btn") != NULL)
+    {
 
-            gpio_state = gpio_get_value(GPIO_16);
-            len = 1;
-            if (copy_to_user(buf, &gpio_state, len) > 0)
-            {
-                pr_err("ERROR: BUTTON copied to user fail !!!\n");
-            }
-            pr_info("Read BUTTON : GPIO_16 = %d \n", gpio_state);
+        gpio_state = gpio_get_value(GPIO_16);
+        len = 1;
+        if (copy_to_user(buf, &gpio_state, len) > 0)
+        {
+            pr_err("ERROR: BUTTON copied to user fail !!!\n");
         }
+        pr_info("Read BUTTON : GPIO_16 = %d \n", gpio_state);
+    }
 
     return 0;
 }
@@ -122,7 +122,7 @@ static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, 
         }
         else
         {
-            pr_err("Unknown command : Please provide either 1 or 0 \n");
+            pr_err("Unknown command : Please provide eit or 0 \n");
             return len;
         }
     }
