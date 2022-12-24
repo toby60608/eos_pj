@@ -393,11 +393,11 @@ int main(int argc, char *argv[])
 			}
 			case 13:
 			{
-				printf("[%s] Send TAKE 2S VIDEO command\n", __func__);
+				printf("[%s] Send TAKE 4S VIDEO command\n", __func__);
 				STRUCT_COMMAND_PACKET_T msg =
 				{
 					.MessageType = SENTRY_MODE_COMMAND_MESSAGE_TYPE,
-					.Id = ENUM_SENTRY_MODE_COMMAND_ID_TAKE_2S_VIDEO,
+					.Id = ENUM_SENTRY_MODE_COMMAND_ID_TAKE_4S_VIDEO,
 					.Length = 0,
 				};
 				printf("Send - id: 0x%02X, length: %d", msg.Id, msg.Length);
@@ -415,7 +415,7 @@ int main(int argc, char *argv[])
 					printf("0x%02X ", msg.Payload[index]);
 				}
 				printf("\n");
-				if (msg.Id != (ENUM_SENTRY_MODE_COMMAND_ID_TAKE_2S_VIDEO | 0x80))
+				if (msg.Id != (ENUM_SENTRY_MODE_COMMAND_ID_TAKE_4S_VIDEO | 0x80))
 				{
 					printf("Receive Error response ID\n");
 				}

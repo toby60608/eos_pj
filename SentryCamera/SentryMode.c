@@ -6,20 +6,34 @@
 
 #define COMMAND_STRING_SIZE (512)
 
+#define COMPARE_PICTURE_INPUT_BUFFER_SIZE (128)
+#define LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME "Picture"
+#define LIBCAMERA_VID_OUTPUT_4S_H264_FILE_NAME "4sVideo"
+#define LIBCAMERA_VID_OUTPUT_6S_H264_FILE_NAME "6sVideo"
+#define FFMPEG_CONCAT_VIDEO_LIST_NAME "FileList.txt"
+
 typedef enum _ENUM_CAMERA_STATE_T
 {
 	ENUM_CAMERA_STATE_SUSPENDED,
 	ENUM_CAMERA_STATE_ACTIVE,
 	ENUM_CAMERA_STATE_MONITOR,
-	ENUM_CAMERA_STATE_TAKE_A_VIDEO,
+	ENUM_CAMERA_STATE_TAKE_A_6S_VIDEO,
 	ENUM_CAMERA_STATE_ALARM,
 }ENUM_CAMERA_STATE_T;
+
+typedef struct _STRUCT_COMPARE_PICTURE_INPUT_T
+{
+	char Picture1Name[COMPARE_PICTURE_INPUT_BUFFER_SIZE];
+	char Picture2Name[COMPARE_PICTURE_INPUT_BUFFER_SIZE];
+}STRUCT_COMPARE_PICTURE_INPUT_T;
 
 typedef struct _STRUCT_SENTRY_MODE_FLAG_T
 {
 	bool StopProcess:1;
 	bool AcyiveSentry:1;
 	bool Alarm:1;
+	bool ComparePicture:1;
+	bool PictureDifferent:1;
 }STRUCT_SENTRY_MODE_FLAG_T;
 
 STRUCT_SENTRY_MODE_FLAG_T Flag = {0};
@@ -36,6 +50,9 @@ key_t MessageQueuekey = DEFAULT_MESSAGE_QUEUE_KEY_NUMBER;
 
 pthread_t pThread_SentryMode;
 pthread_t pThread_CommandParser;
+pthread_t pThread_ComparePicture;
+
+STRUCT_COMPARE_PICTURE_INPUT_T ComparePictureInput;
 
 uint64_t u64PictureCount = 0;
 uint64_t u64VideoCount = 0;
@@ -118,18 +135,18 @@ void TakePicture(char* Name, uint64_t PictureNumber)
 #endif
 }
 
-void Take2sVideo(char* Name, uint64_t VideoNumber)
+void Take4sVideo(char* Name, uint64_t VideoNumber)
 {
 #if (PRINT_MESSAGE_ENABLE != 0)
 	printf("[%s]\n", __func__);
 #endif
 	char CommandString[COMMAND_STRING_SIZE];
-	char DefaultName[] = "2sVideo";
+	char DefaultName[] = "4sVideo";
 	if (strlen(Name) == 0)
 	{
 		Name = DefaultName;
 	}
-	snprintf(CommandString, COMMAND_STRING_SIZE, "libcamera-vid -t 2000 -n --width 640 --height 480 -o %s%lu.h264", Name, VideoNumber);
+	snprintf(CommandString, COMMAND_STRING_SIZE, "libcamera-vid -t 4000 -n --width 640 --height 480 -o %s%lu.h264", Name, VideoNumber);
 #if (PRINT_MESSAGE_ENABLE != 0)
 	printf("System(%s)\n", CommandString);
 #endif
@@ -160,6 +177,58 @@ void Take6sVideo(char* Name, uint64_t VideoNumber)
 	system(CommandString);
 	V(Semaphore, ENUM_SEMAPHORE_ID_CAMERA);
 #endif
+}
+
+void* ComparePicture_Handler(void* data)
+{
+	FILE *fp;
+	int ReceivePythonResponseRetryCount;
+	char LinuxShellResponse[64];
+	char LinuxShellCommand[512];
+#if (PRINT_MESSAGE_ENABLE != 0)
+	printf("[%s] Start\n", __func__);
+#endif
+	STRUCT_COMPARE_PICTURE_INPUT_T *pComparePictureInput = (STRUCT_COMPARE_PICTURE_INPUT_T*)data;
+	snprintf(LinuxShellCommand, sizeof(LinuxShellCommand), "python3 ComparePicture.py %s %s",
+		pComparePictureInput->Picture1Name, pComparePictureInput->Picture2Name);
+
+	if ((fp = popen(LinuxShellCommand, "r")) == NULL)
+	{
+#if (PRINT_MESSAGE_ENABLE != 0)
+		printf("[%s] popen failed\n", __func__);
+#endif
+	}
+	else
+	{
+		ReceivePythonResponseRetryCount = 1000;
+		memset(LinuxShellResponse, 0, sizeof(LinuxShellResponse));
+		while ((fgets(LinuxShellResponse, sizeof(LinuxShellResponse) - 1, fp) == NULL) && (ReceivePythonResponseRetryCount > 0))
+		{
+			ReceivePythonResponseRetryCount--;
+		}
+		pclose(fp);
+#if (PRINT_MESSAGE_ENABLE != 0)
+		printf("[%s] SSIM:%s\n", __func__, LinuxShellResponse);
+#endif
+		if (strlen(LinuxShellResponse) == 0)
+		{
+#if (PRINT_MESSAGE_ENABLE != 0)
+		printf("[%s] No data\n", __func__);
+#endif
+		}
+		else if (atoi(LinuxShellResponse) < 95)
+		{
+			Flag.PictureDifferent = true;
+		}
+		else
+		{
+			Flag.PictureDifferent = false;
+		}
+	}
+#if (PRINT_MESSAGE_ENABLE != 0)
+	printf("[%s] Exit\n", __func__);
+#endif
+	pthread_exit(NULL);
 }
 
 void signal_handler(int signum)
@@ -210,7 +279,7 @@ void signal_handler(int signum)
 			//Catch Alarm signal
 			P(Semaphore, ENUM_SEMAPHORE_ID_ALARM_SIGNAL_FLAG);
 			Flag.Alarm = !Flag.Alarm;
-			P(Semaphore, ENUM_SEMAPHORE_ID_ALARM_SIGNAL_FLAG);
+			V(Semaphore, ENUM_SEMAPHORE_ID_ALARM_SIGNAL_FLAG);
 			break;
 		}
 		default:
@@ -226,11 +295,16 @@ void* SentryMode_Handler(void* data)
 	printf("[%s] Start\n", __func__);
 #endif
 	ENUM_CAMERA_STATE_T state = ENUM_CAMERA_STATE_SUSPENDED;
-	uint64_t u64LocalTimerCount = 0;
+	uint64_t u64LocalTimerCount = 0, u64PastLocalTimerCount, u64RemoveCount;
 
 	struct sigaction SA_SIGALRM;
 	struct itimerval timer;
-	
+
+	FILE *fp;
+	int ReceivePythonResponseRetryCount;
+	char LinuxShellResponse[64];
+	char LinuxShellCommand[512];
+
 	memset (&SA_SIGALRM, 0, sizeof (SA_SIGALRM));
 	SA_SIGALRM.sa_handler = &SIGALRM_handler;
 	sigaction (SIGALRM, &SA_SIGALRM, NULL);
@@ -238,8 +312,8 @@ void* SentryMode_Handler(void* data)
   timer.it_value.tv_sec = 0;
   timer.it_value.tv_usec = 1000;
 
-  /* Reset the timer back to 2 sec after expired */
-  timer.it_interval.tv_sec = 2;
+  /* Reset the timer back to 4 sec after expired */
+  timer.it_interval.tv_sec = 4;
   timer.it_interval.tv_usec = 0;
 	/* Start timer */
   setitimer(ITIMER_REAL, &timer, NULL);
@@ -253,7 +327,11 @@ void* SentryMode_Handler(void* data)
 				P(Semaphore, ENUM_SEMAPHORE_ID_SUSPEND_SIGNAL_FLAG);
 				if (Flag.AcyiveSentry == true)
 				{
+					Flag.ComparePicture = false;
 					state = ENUM_CAMERA_STATE_ACTIVE;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: active\n", __func__);
+#endif
 				}
 				V(Semaphore, ENUM_SEMAPHORE_ID_SUSPEND_SIGNAL_FLAG);
 				break;
@@ -263,13 +341,42 @@ void* SentryMode_Handler(void* data)
 				//Take pictures
 				if (TimerCount != u64LocalTimerCount)
 				{
-					TakePicture("Picture", TimerCount);
+					TakePicture(LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME, u64LocalTimerCount);
+
+					if (Flag.ComparePicture == true)
+					{
+						P(Semaphore, ENUM_SEMAPHORE_ID_COMPARE_PICTURE);
+						snprintf(ComparePictureInput.Picture1Name, COMPARE_PICTURE_INPUT_BUFFER_SIZE, "%s%lu.png", LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME, u64PastLocalTimerCount);
+						snprintf(ComparePictureInput.Picture2Name, COMPARE_PICTURE_INPUT_BUFFER_SIZE, "%s%lu.png", LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME, u64LocalTimerCount);
+						pthread_create(&pThread_ComparePicture, NULL, ComparePicture_Handler, (void*)(&ComparePictureInput));
+						V(Semaphore, ENUM_SEMAPHORE_ID_COMPARE_PICTURE);
+					}
+					else
+					{
+						Flag.ComparePicture = true;
+					}
+
+					u64PastLocalTimerCount = u64LocalTimerCount;
 					u64LocalTimerCount = TimerCount;
+				}
+				if (Flag.PictureDifferent == true)
+				{
+					Flag.ComparePicture = false;
+					system("rm -f *.png");
+					state = ENUM_CAMERA_STATE_MONITOR;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: monitor\n", __func__);
+#endif
 				}
 				P(Semaphore, ENUM_SEMAPHORE_ID_SUSPEND_SIGNAL_FLAG);
 				if (Flag.AcyiveSentry == false)
-				{
+				{//The piorety of ENUM_CAMERA_STATE_SUSPENDED is higher than ENUM_CAMERA_STATE_MONITOR
+					Flag.ComparePicture = false;
 					state = ENUM_CAMERA_STATE_SUSPENDED;
+					system("rm -f *.png");
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: suspend\n", __func__);
+#endif
 				}
 				V(Semaphore, ENUM_SEMAPHORE_ID_SUSPEND_SIGNAL_FLAG);
 				break;
@@ -278,32 +385,89 @@ void* SentryMode_Handler(void* data)
 			{
 				if (TimerCount != u64LocalTimerCount)
 				{
-					//Take 2-second video
-					Take2sVideo("2sVideo", TimerCount);
-					//Get a picture and compare them
-					
+					//Take 4-second video
+					Take4sVideo(LIBCAMERA_VID_OUTPUT_4S_H264_FILE_NAME, u64LocalTimerCount);
+					//Get a picture from video
+					snprintf(LinuxShellCommand, sizeof(LinuxShellCommand), "ffmpeg -i %s%lu.h264 -ss 1 -y -vframes 1 -hide_banner -loglevel error %s%lu.png",
+						LIBCAMERA_VID_OUTPUT_4S_H264_FILE_NAME, u64LocalTimerCount, LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME, u64LocalTimerCount);
+					system(LinuxShellCommand);
+					//Compare pictures
+					if (Flag.ComparePicture == true)
+					{
+						P(Semaphore, ENUM_SEMAPHORE_ID_COMPARE_PICTURE);
+						snprintf(ComparePictureInput.Picture1Name, COMPARE_PICTURE_INPUT_BUFFER_SIZE, "%s%lu.png", LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME, u64PastLocalTimerCount);
+						snprintf(ComparePictureInput.Picture2Name, COMPARE_PICTURE_INPUT_BUFFER_SIZE, "%s%lu.png", LIBCAMERA_STILL_OUTPUT_PNG_FILE_NAME, u64LocalTimerCount);
+						pthread_create(&pThread_ComparePicture, NULL, ComparePicture_Handler, (void*)(&ComparePictureInput));
+						V(Semaphore, ENUM_SEMAPHORE_ID_COMPARE_PICTURE);
+					}
+					else
+					{
+						Flag.ComparePicture = true;
+					}
+					u64RemoveCount = u64PastLocalTimerCount;
+					u64PastLocalTimerCount = u64LocalTimerCount;
 					u64LocalTimerCount = TimerCount;
+				}
+				if (Flag.PictureDifferent == false)
+				{
+					Flag.ComparePicture = false;
+					system("rm -f *.png");
+					//system("rm -f 4s*.h264");
+					state = ENUM_CAMERA_STATE_ACTIVE;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: active\n", __func__);
+#endif
 				}
 				P(Semaphore, ENUM_SEMAPHORE_ID_ALARM_SIGNAL_FLAG);
 				if (Flag.Alarm == true)
 				{
-					state = ENUM_CAMERA_STATE_TAKE_A_VIDEO;
+					state = ENUM_CAMERA_STATE_TAKE_A_6S_VIDEO;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: take a 6s video\n", __func__);
+#endif
 				}
 				V(Semaphore, ENUM_SEMAPHORE_ID_ALARM_SIGNAL_FLAG);
 				P(Semaphore, ENUM_SEMAPHORE_ID_SUSPEND_SIGNAL_FLAG);
 				if (Flag.AcyiveSentry == false)
 				{
 					state = ENUM_CAMERA_STATE_SUSPENDED;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: suspend\n", __func__);
+#endif
 				}
 				V(Semaphore, ENUM_SEMAPHORE_ID_SUSPEND_SIGNAL_FLAG);
 				break;
 			}
-			case ENUM_CAMERA_STATE_TAKE_A_VIDEO:
+			case ENUM_CAMERA_STATE_TAKE_A_6S_VIDEO:
 			{
 				//Take 6-second video
-				Take2sVideo("6sVideo", u64LocalTimerCount);
+				Take6sVideo(LIBCAMERA_VID_OUTPUT_6S_H264_FILE_NAME, u64PastLocalTimerCount);
+				// prepare FileList.txt for merging 6sVideo($u64PastLocalTimerCount).h264 and 4sVideo($u64PastLocalTimerCount).h264
+				system("rm *.txt");
+				if ((fp = fopen(FFMPEG_CONCAT_VIDEO_LIST_NAME, "w")) == NULL)
+				{
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] open failed\n", __func__);
+#endif
+				}
+				else
+				{
+					snprintf(LinuxShellCommand, sizeof(LinuxShellCommand), "file '%s%lu.h264'\nfile '%s%lu.h264'\n",
+						LIBCAMERA_VID_OUTPUT_6S_H264_FILE_NAME, u64PastLocalTimerCount,
+						LIBCAMERA_VID_OUTPUT_4S_H264_FILE_NAME, u64PastLocalTimerCount);
+					fwrite(LinuxShellCommand, 1, strlen(LinuxShellCommand), fp);
+					fclose(fp);
+				}
+				
+				// Write the video file name to shared memory
+				snprintf(LinuxShellCommand, sizeof(LinuxShellCommand), "ffmpeg -f concat -i %s -hide_banner -loglevel error -y -c copy Alarm.h264", FFMPEG_CONCAT_VIDEO_LIST_NAME);
+				system(LinuxShellCommand);
+				snprintf(pSentryModeSharedMemory->AlarmVideo, SHARED_MEMORY_ALARM_VIDEO_BUFFER_SIZE, "Alarm.h264");
 				
 				state = ENUM_CAMERA_STATE_ALARM;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: alarm\n", __func__);
+#endif
 				break;
 			}
 			case ENUM_CAMERA_STATE_ALARM:
@@ -312,6 +476,9 @@ void* SentryMode_Handler(void* data)
 				if (Flag.Alarm == false)
 				{
 					state = ENUM_CAMERA_STATE_MONITOR;
+#if (PRINT_MESSAGE_ENABLE != 0)
+					printf("[%s] state: monitor\n", __func__);
+#endif
 				}
 				V(Semaphore, ENUM_SEMAPHORE_ID_ALARM_SIGNAL_FLAG);
 				break;
@@ -528,9 +695,9 @@ void* CommandParser_Handler(void* data)
 #endif
 				break;
 			}
-			case ENUM_SENTRY_MODE_COMMAND_ID_TAKE_2S_VIDEO:
+			case ENUM_SENTRY_MODE_COMMAND_ID_TAKE_4S_VIDEO:
 			{
-				Take2sVideo("Test2sVideo", TimerCount);
+				Take4sVideo("Test4sVideo", TimerCount);
 				RxCommand.Id |= 0x80;
 				RxCommand.Length = 1;
 				memset(RxCommand.Payload, 0, 256);
@@ -664,6 +831,7 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	}
+	//Create Thread to handle Command parser and Camera manager
 	if (pthread_create(&pThread_SentryMode, NULL, SentryMode_Handler, NULL) != 0)
 	{
 		Flag.StopProcess = true;
