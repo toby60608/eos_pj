@@ -1,11 +1,12 @@
+
 /***************************************************************************/ 
 /**
  * \file led_driver.c
  * \details Simple GPIO driver explanation
  * \author EmbeTronicX
  * \Tested with Linux raspberrypi 5.4.51-v7l+
- ******************************************************************************
- */
+ *******************************************************************************/
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -16,7 +17,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h> //copy_to/from_user()
 #include <linux/gpio.h>    //GPIO
-
+#include <linux/kstrtox.h>
 
 
 
@@ -25,7 +26,6 @@ static struct class *dev_class;
 static struct cdev etx_cdev;
 static int __init etx_driver_init(void);
 static void __exit etx_driver_exit(void);
-
 /*************** Driver functions **********************/
 static int etx_open(struct inode *inode, struct file *file);
 static int etx_release(struct inode *inode, struct file *file);
@@ -35,13 +35,36 @@ static ssize_t etx_write(struct file *filp,
                          const char *buf, size_t len, loff_t *off);
 /******************************************************/
 
-#define LED_VALUE_INVALID 0xFF
+//#define USING_VIRTUAL_DEV_ONLY      1
+
+/* /dev/etx_device input definition */
+#define DEV_INPUT_NORMAL_LED_ON     51
+#define DEV_INPUT_NORMAL_LED_OFF    52
+#define DEV_INPUT_7SEG_OFF          53
+
+
+/* virtual device */
+unsigned long long virtual_gpio=0;
+void mydev_gpio_set_value(unsigned gpio, int value)
+{
+#ifndef USING_VIRTUAL_DEV_ONLY
+    gpio_set_value(gpio, value);
+#endif
+    printk("gpio %d --> %d\n",gpio,value);
+    
+    if (value==1)
+        virtual_gpio |= (0x1 << gpio);
+    if (value==0)
+        virtual_gpio &= ~(0x1 << gpio);
+}
+
+#define LED_VALUE_INVALID           0xFF
 int LED_value = LED_VALUE_INVALID;
-void write_7segLED(int d)
+void mydev_virtual_dev_set(int d)
 {
     LED_value = d;
 }
-void get_7segLED(int *d)
+void mydev_virtual_dev_get(int *d)
 {
     if(LED_value == LED_VALUE_INVALID)
     {
@@ -54,21 +77,106 @@ void get_7segLED(int *d)
     }
 }
 
+/* normal LED */
+#define NORMAL_LED_GPIO_PIN     21
+
+/* 7-eg LED */
+/* map 7-seg pgfedcba tp GPIO pin */
+#define LED_SEGMENT_NUM    8
+typedef struct gpio_info
+{
+    char seg_name;
+    int gpio_pin;
+    bool requested;
+}gpio_into_S;
+
+gpio_into_S gpioInfo[LED_SEGMENT_NUM] = {
+    {.seg_name = 'p', .gpio_pin = 18, .requested = false},
+    {.seg_name = 'g', .gpio_pin = 23, .requested = false},
+    {.seg_name = 'f', .gpio_pin = 24, .requested = false},
+    {.seg_name = 'e', .gpio_pin = 25, .requested = false},
+    {.seg_name = 'd', .gpio_pin =  8, .requested = false},
+    {.seg_name = 'c', .gpio_pin =  7, .requested = false},
+    {.seg_name = 'b', .gpio_pin = 12, .requested = false},
+    {.seg_name = 'a', .gpio_pin = 16, .requested = false},
+};
+
+
+typedef struct gpio_led_db
+{
+    int number;
+    unsigned char pgfedcba;
+} gpio_led_db_S;
+gpio_led_db_S commonCathode_db[] =
+{
+        {.number = 0,  .pgfedcba = 0b00111111},
+        {.number = 1,  .pgfedcba = 0b00000110},
+        {.number = 2,  .pgfedcba = 0b01011011},
+        {.number = 3,  .pgfedcba = 0b01001111},
+        {.number = 4,  .pgfedcba = 0b01100110},
+        {.number = 5,  .pgfedcba = 0b01101101},
+        {.number = 6,  .pgfedcba = 0b01111101},
+        {.number = 7,  .pgfedcba = 0b00000111},
+        {.number = 8,  .pgfedcba = 0b01111111},
+        {.number = 9,  .pgfedcba = 0b01101111},
+        {.number = 10, .pgfedcba = 0b11110111}, //A
+        {.number = 11, .pgfedcba = 0b11111100}, //B
+        {.number = 12, .pgfedcba = 0b10111001}, //C
+        {.number = 13, .pgfedcba = 0b11011110}, //D
+};
+
+#define LED_SEGMENT_NUM 8
+int mydev_7segLED_write(int digit)
+{
+    int seg;
+
+    for (seg=0; seg < LED_SEGMENT_NUM; seg++)
+    {
+        if( commonCathode_db[digit].pgfedcba & (0b10000000 >> seg) )
+        {
+            mydev_gpio_set_value(gpioInfo[seg].gpio_pin, 1);
+        }
+        else
+        {
+            mydev_gpio_set_value(gpioInfo[seg].gpio_pin, 0);
+        }
+    }
+    printk("\n");
+
+    mydev_virtual_dev_set(digit);
+    return 0;
+}
+int mydev_7segLED_off(void)
+{
+    int seg;
+
+    for (seg=0; seg < LED_SEGMENT_NUM; seg++)
+    {
+        mydev_gpio_set_value(gpioInfo[seg].gpio_pin, 0);
+    }
+
+    mydev_virtual_dev_set(DEV_INPUT_7SEG_OFF);
+
+    return 0;
+}
+
+
+
 // File operation structure
 static struct file_operations fops =
-{
-    .owner = THIS_MODULE,
-    .read = etx_read,
-    .write = etx_write,
-    .open = etx_open,
-    .release = etx_release,
+    {
+        .owner = THIS_MODULE,
+        .read = etx_read,
+        .write = etx_write,
+        .open = etx_open,
+        .release = etx_release,
 };
 /*
 ** This function will be called when we open the Device file
 */
 static int etx_open(struct inode *inode, struct file *file)
 {
-    printk("Device File Opened...!!!\n");
+    pr_info("Device File Opened...!!!\n");
     return 0;
 }
 /*
@@ -76,7 +184,7 @@ static int etx_open(struct inode *inode, struct file *file)
 */
 static int etx_release(struct inode *inode, struct file *file)
 {
-    printk("Device File Closed...!!!\n");
+    pr_info("Device File Closed...!!!\n");
     return 0;
 }
 /*
@@ -85,16 +193,16 @@ static int etx_release(struct inode *inode, struct file *file)
 static ssize_t etx_read(struct file *filp,
                         char __user *buf, size_t len, loff_t *off)
 {
-    int led_value=0;
-
-    get_7segLED(&led_value);
-
-    len = sizeof(led_value);
-    if (copy_to_user(buf, (void *)&led_value, len) > 0)
+    uint8_t gpio_state = 0;
+    // reading GPIO value
+    gpio_state = gpio_get_value(NORMAL_LED_GPIO_PIN);
+    // write to user
+    len = 1;
+    if (copy_to_user(buf, &gpio_state, len) > 0)
     {
-        printk("ERROR: Not all the bytes have been copied to user\n");
+        pr_err("ERROR: Not all the bytes have been copied to user\n");
     }
-    printk("Read function : led_value = %d \n", led_value);
+    pr_info("Read function : NORMAL_LED_GPIO_PIN = %d \n", gpio_state);
     return 0;
 }
 /*
@@ -103,57 +211,108 @@ static ssize_t etx_read(struct file *filp,
 static ssize_t etx_write(struct file *filp,
                          const char __user *buf, size_t len, loff_t *off)
 {
-    int rec_buf = 0;
+    uint8_t rec_buf[10] = {0};
+    int num;
 
-    if (copy_from_user((void *)&rec_buf, buf, sizeof(rec_buf)) > 0)
+    if (copy_from_user(rec_buf, buf, len) > 0)
     {
-        printk("ERROR: Not all the bytes have been copied from user\n");
+        pr_err("ERROR: Not all the bytes have been copied from user\n");
     }
+    //num = simple_strtol(rec_buf, NULL, 0);
+    num=rec_buf[0];
+    pr_info("Write Function : rec_buf = %s, num=%d\n", rec_buf,num);
 
-    printk("Write %d to 7segLED\n", rec_buf);
-    write_7segLED(rec_buf);
+    if(num == DEV_INPUT_NORMAL_LED_ON)
+    {
+        mydev_gpio_set_value(NORMAL_LED_GPIO_PIN, 1);
+    }
+    else if (num == DEV_INPUT_NORMAL_LED_OFF)
+    {
+        mydev_gpio_set_value(NORMAL_LED_GPIO_PIN, 0);
+    }
+    else if (num == DEV_INPUT_7SEG_OFF)
+    {
+        mydev_7segLED_off();
+    }
+    else if ((num>=0)&&(num<=13))
+    {
+        printk("Write %d to 7segLED\n", num);
+        mydev_7segLED_write(num);
+    }
+    else
+    {
+        printk("skip the writing (num=%d)\n",num);
+    }
 
     return len;
 }
+
+int mydev_gpio_init(int pin)
+{
+    char name[20]={0};
+
+    if (gpio_is_valid(pin) == false)
+    {
+        pr_err("GPIO %d is not valid\n", pin);
+        return -1;
+    }
+    sprintf(name, "GPIO_%d",pin);
+    if (gpio_request(pin, name) < 0)
+    {
+        pr_err("ERROR: GPIO %d request\n", pin);
+        return -1;
+    }
+    gpio_direction_output(pin, 0);
+    gpio_export(pin, false);
+    return 0;
+}
+
+
 /*
 ** Module Init function
 */
 static int __init etx_driver_init(void)
 {
-
     /*Allocating Major number*/
     if ((alloc_chrdev_region(&dev, 0, 1, "etx_Dev")) < 0)
     {
-        printk("Cannot allocate major number\n");
+        pr_err("Cannot allocate major number\n");
         goto r_unreg;
     }
-    printk("Major = %d Minor = %d \n", MAJOR(dev), MINOR(dev));
-
+    pr_info("Major = %d Minor = %d \n", MAJOR(dev), MINOR(dev));
     /*Creating cdev structure*/
     cdev_init(&etx_cdev, &fops);
-
     /*Adding character device to the system*/
     if ((cdev_add(&etx_cdev, dev, 1)) < 0)
     {
-        printk("Cannot add the device to the system\n");
+        pr_err("Cannot add the device to the system\n");
         goto r_del;
     }
-
     /*Creating struct class*/
     if ((dev_class = class_create(THIS_MODULE, "etx_class")) == NULL)
     {
-        printk("Cannot create the struct class\n");
+        pr_err("Cannot create the struct class\n");
         goto r_class;
     }
-
     /*Creating device*/
     if ((device_create(dev_class, NULL, dev, NULL, "etx_device")) == NULL)
     {
-        printk("Cannot create the Device \n");
+        pr_err("Cannot create the Device \n");
         goto r_device;
     }
 
-    printk("Device Driver Insert...Done!!!\n");
+    {
+        int pin;
+        for(pin=0;pin<LED_SEGMENT_NUM;pin++)
+        {
+            if (mydev_gpio_init(gpioInfo[pin].gpio_pin) == -1)
+                goto r_device;
+        }
+    }
+    if( mydev_gpio_init(NORMAL_LED_GPIO_PIN) == -1)
+        goto r_device;
+
+    pr_info("Device Driver Insert...Done!!!\n");
     return 0;
 
 r_device:
@@ -171,13 +330,14 @@ r_unreg:
 */
 static void __exit etx_driver_exit(void)
 {
+    gpio_unexport(NORMAL_LED_GPIO_PIN);
+    gpio_free(NORMAL_LED_GPIO_PIN);
     device_destroy(dev_class, dev);
     class_destroy(dev_class);
     cdev_del(&etx_cdev);
     unregister_chrdev_region(dev, 1);
-    printk("Device Driver Remove...Done!!\n");
+    pr_info("Device Driver Remove...Done!!\n");
 }
-
 module_init(etx_driver_init);
 module_exit(etx_driver_exit);
 MODULE_LICENSE("GPL");

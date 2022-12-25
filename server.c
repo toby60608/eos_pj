@@ -19,6 +19,13 @@ int sockFd, resultFd;
 pthread_mutex_t server_db_mutex;
 
 
+typedef struct security_s{
+    int security;   /* 1:open, 0:close */
+    int door;       /* 1:open, 0:close */
+}security_t;
+
+security_t securityDB;
+
 typedef struct threadInfo_s{
     int         used;
     pthread_t   threadId;
@@ -164,10 +171,12 @@ int user_cmd_handle(clientInfo_t *cinfo)
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_lock:
+                securityDB.security=1;
                 str="MSG:door lock!";
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_unlock:
+                securityDB.security=0;
                 unlock_handler(cinfo);
                 break;
             case CLIENT_CMD_clearalarm:
@@ -292,6 +301,9 @@ int main(int argc, char *argv[])
         // printf("user_input_s=%s\n", user_input_s);
         // printf("user_input_i=%d\n", user_input_i);
     }
+
+    securityDB.security =0;
+    securityDB.door =0;
 
     memset((void *)clientInfo,0,sizeof(clientInfo_t)*MAX_CLIENT_NUM);
 
