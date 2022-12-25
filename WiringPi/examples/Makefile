@@ -89,6 +89,10 @@ lcd-adafruit:	lcd-adafruit.o
 	$Q echo [link]
 	$Q $(CC) -o $@ lcd-adafruit.o $(LDFLAGS) $(LDLIBS)
 
+lcd-eos7:	lcd-eos7.o
+	$Q echo [link]
+	$Q $(CC) -o $@ lcd-eos7.o $(LDFLAGS) $(LDLIBS)
+
 clock:	clock.o
 	$Q echo [link]
 	$Q $(CC) -o $@ clock.o $(LDFLAGS) $(LDLIBS)
