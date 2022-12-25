@@ -6,8 +6,8 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/delay.h>
-#include <linux/uaccess.h> 
-#include <linux/gpio.h>    
+#include <linux/uaccess.h>
+#include <linux/gpio.h>
 #include <linux/string.h>
 
 // BUTTON is connected to this GPIO
@@ -18,7 +18,6 @@
 
 // LED is connected to this GPIO
 #define GPIO_21 21
-
 
 dev_t dev = 1;
 static struct class *dev_class;
@@ -52,7 +51,7 @@ static int etx_open(struct inode *inode, struct file *file)
 }
 
 /*
- This function will be called when we close the Device file 
+ This function will be called when we close the Device file
 */
 static int etx_release(struct inode *inode, struct file *file)
 {
@@ -63,23 +62,24 @@ static int etx_release(struct inode *inode, struct file *file)
 /*
  This function will be called when we read the Device file
 */
-static ssize_t etx_read(struct file *filp,char __user *buf, size_t len, loff_t *off)
+static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
   uint8_t gpio_state = 0;
-  
+
   printk("read in");
-  
-  if(strstr(buf,"btn")!=NULL){
-	  
-    gpio_state = gpio_get_value(GPIO_16); 
+
+  if (strstr(buf, "btn") != NULL)
+  {
+
+    gpio_state = gpio_get_value(GPIO_16);
     len = sizeof(gpio_state);
-    if (copy_to_user(buf, &gpio_state, len) > 0){
-	  pr_err("ERROR: BUTTON copied to user fail !!!\n");
+    if (copy_to_user(buf, &gpio_state, len) > 0)
+    {
+      pr_err("ERROR: BUTTON copied to user fail !!!\n");
     }
     pr_info("Read BUTTON : GPIO_16 = %d \n", gpio_state);
-    
   }
-	
+
   return 0;
 }
 
@@ -88,68 +88,81 @@ static ssize_t etx_read(struct file *filp,char __user *buf, size_t len, loff_t *
 */
 static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
 {
-  //uint8_t rec_buf[10] = {0};
+  // uint8_t rec_buf[10] = {0};
 
-  char rec_buf[50]={0};
-  char *component="";
-  char *act="";
+  char rec_buf[50] = {0};
+  char *component = "";
+  char *act = "";
 
   if (copy_from_user(rec_buf, buf, len) > 0)
   {
-      pr_err("ERROR: Not all the bytes have been copied from user\n");
+    pr_err("ERROR: Not all the bytes have been copied from user\n");
   }
-	  
-  
-  strscpy(component,buf,sizeof(buf));		
-  component = strsep(&component, "_");
-  
-  if(strstr(component,"lcd")!=NULL){
-	  
-	   
-  }else if(strstr(component,"led")!=NULL){
-		
-    act=strsep(NULL, "_");
-    pr_info("Write Function : GPIO_21 Set = %s\n", act);
-    if (strcmp(act,"1")==0) {
-	gpio_set_value(GPIO_21, 1);
-    } else if (strcmp(act,"0")==0) {
-	gpio_set_value(GPIO_21, 0);
-    } else {
-	pr_err("Unknown command : Please provide either 1 or 0 \n");
-	return len;
-    }
-	  
-  }else if (strstr(component,"buz")!=NULL){
 
-    act=strsep(NULL, "_");
-    pr_info("Write Function : GPIO_20 Set = %s\n", act);
-    if (strcmp(act,"1")==0) {
-	gpio_set_value(GPIO_20, 1);
-    } else if (strcmp(act,"0")==0) {
-	gpio_set_value(GPIO_20, 0);
-    } else {
-	pr_err("Unknown command : Please provide either 1 or 0 \n");
-	return len;
+  strscpy(component, buf, sizeof(buf));
+  component = strsep(&component, "_");
+
+
+ if (strstr(component, "led") != NULL)
+  {
+
+    act = strsep(NULL, "_");
+    pr_info("Write Function : GPIO_21 Set = %s\n", act);
+    if (strcmp(act, "1") == 0)
+    {
+      gpio_set_value(GPIO_21, 1);
     }
-	  
-  }else if(strstr(component,"btn")!=NULL){
-	  
-    act=strsep(NULL, "_");
-    pr_info("Write Function : GPIO_16 Set = %s\n", act);
-    if (strcmp(act,"1")==0) {
-	gpio_set_value(GPIO_16, 1);
-    } else if (strcmp(act,"0")==0) {
-	gpio_set_value(GPIO_16, 0);
-    } else {
-	pr_err("Unknown command : Please provide either 1 or 0 \n");
-	return len;
+    else if (strcmp(act, "0") == 0)
+    {
+      gpio_set_value(GPIO_21, 0);
     }
-    
+    else
+    {
+      pr_err("Unknown command : Please provide either 1 or 0 \n");
+      return len;
+    }
   }
-  
+  else if (strstr(component, "buz") != NULL)
+  {
+
+    act = strsep(NULL, "_");
+    pr_info("Write Function : GPIO_20 Set = %s\n", act);
+    if (strcmp(act, "1") == 0)
+    {
+      gpio_set_value(GPIO_20, 1);
+    }
+    else if (strcmp(act, "0") == 0)
+    {
+      gpio_set_value(GPIO_20, 0);
+    }
+    else
+    {
+      pr_err("Unknown command : Please provide either 1 or 0 \n");
+      return len;
+    }
+  }
+  else if (strstr(component, "btn") != NULL)
+  {
+
+    act = strsep(NULL, "_");
+    pr_info("Write Function : GPIO_16 Set = %s\n", act);
+    if (strcmp(act, "1") == 0)
+    {
+      gpio_set_value(GPIO_16, 1);
+    }
+    else if (strcmp(act, "0") == 0)
+    {
+      gpio_set_value(GPIO_16, 0);
+    }
+    else
+    {
+      pr_err("Unknown command : Please provide either 1 or 0 \n");
+      return len;
+    }
+  }
+
   return len;
 }
-
 
 /*
 ** Module Init function
@@ -215,8 +228,10 @@ static int __init etx_driver_init(void)
 
   /* Using this call the GPIO 21 will be visible in /sys/class/gpio/
   ** Now you can change the gpio values by using below commands also.
-  ** echo 1 > /sys/class/gpio/gpio21/value (turn ON the LED) ** echo 0 > /sys/class/gpio/gpio21/value (turn OFF the LED)
-  ** cat /sys/class/gpio/gpio21/value (read the value LED) **
+  ** echo 1 > /sys/class/gpio/gpio21/value (turn ON the LED) 
+  ** echo 0 > /sys/class/gpio/gpio21/value (turn OFF the LED)
+  ** cat /sys/class/gpio/gpio21/value (read the value LED) 
+  **
   ** the second argument prevents the direction from being changed. */
   gpio_export(GPIO_16, false);
   gpio_export(GPIO_20, false);
@@ -246,7 +261,6 @@ r_unreg:
 */
 static void __exit etx_driver_exit(void)
 {
-
   gpio_unexport(GPIO_16);
   gpio_free(GPIO_16);
   gpio_unexport(GPIO_21);
