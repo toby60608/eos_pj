@@ -94,7 +94,7 @@ typedef struct gpio_info
 #define NORMAL_LED_GPIO_PIN     22 //21
 gpio_into_S gpioInfo[LED_SEGMENT_NUM] = {
     {.seg_name = 'p', .gpio_pin = 17, .requested = false}, //18
-    {.seg_name = 'g', .gpio_pin = 23, .requested = false},
+    {.seg_name = 'g', .gpio_pin = 13, .requested = false}, //23
     {.seg_name = 'f', .gpio_pin = 24, .requested = false},
     {.seg_name = 'e', .gpio_pin = 25, .requested = false},
     {.seg_name = 'd', .gpio_pin = 26, .requested = false}, //8
