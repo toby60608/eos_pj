@@ -15,6 +15,40 @@
 #include <signal.h>
 #include "project.h"
 
+
+
+int etx_device_fd=0;
+int gpio_init(void)
+{
+    etx_device_fd = open("/dev/etx_device", O_RDWR);
+
+    if (etx_device_fd == -1)
+    {
+        printf("ERR: file open failed: %s\n","/dev/etx_device");
+        return -1;
+    }
+//printf("File open done: fd=%d\n",etx_device_fd);
+    return 0;
+}
+int write_a_digit_to_7segLED(int digit)
+{
+    write(etx_device_fd, (void *)&digit, sizeof(digit));
+    return 0;
+}
+void userInput_to_7segLED(char *s)
+{
+    int i = 0;
+
+    while (s[i] != 0)
+    {
+        int d = s[i] - '0';
+        printf("write %i to 7-seg LED\n", d);
+        write_a_digit_to_7segLED(d);
+        sleep(1);
+        i++;
+    }
+}
+
 int sockFd, resultFd;
 pthread_mutex_t server_db_mutex;
 
@@ -171,11 +205,13 @@ int user_cmd_handle(clientInfo_t *cinfo)
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_lock:
+                userInput_to_7segLED("1");
                 securityDB.security=1;
-                str="MSG:door lock!";
+                str="MSG:secu lock!";
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_unlock:
+                userInput_to_7segLED("0");
                 securityDB.security=0;
                 unlock_handler(cinfo);
                 break;
@@ -283,7 +319,6 @@ int pj_client_handle(int socket_fd)
     return 0;
 }
 
-
 int main(int argc, char *argv[])
 {
     int user_input_i,i;
@@ -309,9 +344,11 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, server_sigint_handler);
     pthread_mutex_init(&server_db_mutex, 0);
+    gpio_init();
     pj_server_create(user_input_i);
     pj_client_handle(sockFd);
     close(sockFd);
+    close(etx_device_fd);
 
     return 0;
 }
