@@ -191,6 +191,7 @@ int user_cmd_handle(clientInfo_t *cinfo)
     int cmd;
     char buff[BUFF_SIZE], *str;
 
+
     while(1)
     {
         memset(buff, 0, sizeof(buff));
@@ -205,15 +206,23 @@ int user_cmd_handle(clientInfo_t *cinfo)
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_lock:
+            {
+                char *StrArray[] = {"user", "11"};
+                camera_ctl(2,StrArray);
                 userInput_to_7segLED("1");
                 securityDB.security=1;
                 str="MSG:secu lock!";
                 send(cinfo->fd, str,strlen(str), 0);
+            }
                 break;
             case CLIENT_CMD_unlock:
+            {
+                char *StrArray[] = {"user", "10"};
+                camera_ctl(2,StrArray);
                 userInput_to_7segLED("0");
                 securityDB.security=0;
                 unlock_handler(cinfo);
+            }
                 break;
             case CLIENT_CMD_clearalarm:
                 str="MSG:door alarm clear!";

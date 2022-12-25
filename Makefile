@@ -1,7 +1,7 @@
 
 export CROSS_COMPILE=aarch64-linux-gnu-
 export ARCH=arm64
-#sudo date  --s="2022-12-25 13:32:00"
+#sudo date  --s="2022-12-25 14:55:00"
 #sudo timedatectl set-timezone Asia/Taipei
 
 obj-m += mydev.o
@@ -17,9 +17,9 @@ writer: writer.c project.h
 #	$(CROSS_COMPILE)gcc writer.c -o writer
 	gcc writer.c -o writer
 
-server: server.c project.h
+server: server.c SentryCamera/TestCamera.c project.h
 #	$(CROSS_COMPILE)gcc server.c -o server -lpthread
-	gcc server.c -o server -lpthread
+	gcc server.c SentryCamera/TestCamera.c -o server -lpthread
 
 
 client: client.c project.h

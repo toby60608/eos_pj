@@ -61,4 +61,6 @@ static int cmd_str_parse(char *rcv, int *cmd)
     return -1;
 }
 
+extern int camera_ctl(int argc, char *argv[]);
+
 #endif //PROJECT_H

@@ -2,15 +2,15 @@ ccflags-y := -std=gnu99 -Wno-declaration-after-statement
 MainFileName = TestCamera
 FunctionFile1Name = SentryMode
 
-all: RPI_build
-#all: x86_build
+#all: RPI_build
+all: x86_build
 
-clean: 
+clean:
 ifeq ($(shell test -e $(MainFileName)  && echo -n true),true)
-	sudo rm $(MainFileName) 
+	sudo rm $(MainFileName)
 endif
 ifeq ($(shell test -e $(FunctionFile1Name)  && echo -n true),true)
-	sudo rm $(FunctionFile1Name) 
+	sudo rm $(FunctionFile1Name)
 endif
 
 x86_build: $(MainFileName).c $(FunctionFile1Name).c

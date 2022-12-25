@@ -37,7 +37,7 @@ int P (int s, unsigned short int SemaphoreIndex)
 		return 0;
 	}
 }
- 
+
 /* V() - returns 0 if OK; -1 if there was a problem */
 int V(int s, unsigned short int SemaphoreIndex)
 {
@@ -77,14 +77,14 @@ void signal_handler(int signum)
 	}
 }
 
-int main(int argc, char *argv[])
+int camera_ctl(int argc, char *argv[])
 {
 	int ret;
 	struct sigaction sa;
 	sa.sa_handler = signal_handler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
-	
+
 	if (sigaction(SIGINT, &sa, NULL) == -1)
 	{
 		printf("[%s] Failed to caught signal\n", __func__);
