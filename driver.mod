@@ -1,2 +1,2 @@
-/home/ubuntu/eos_pj/driver.o
+/home/pi/eos_pj/driver.o
 
