@@ -13,26 +13,17 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <signal.h>
+#include "project.h"
 
 int sockFd, resultFd;
 pthread_mutex_t server_db_mutex;
 
-#define CLIENT_CMD_Check        0x1
-#define CLIENT_CMD_Lock         0x2
-#define CLIENT_CMD_Unlock       0x3
-#define CLIENT_CMD_ClearAlarm   0x4
-#define CLIENT_CMD_Video        0x5
-#define CLIENT_CMD_Quit         0x6
-#define CLIENT_CMD_WRONG        0x99
 
-#define MAX_CLIENT_NUM          100
 typedef struct threadInfo_s{
     int         used;
     pthread_t   threadId;
     int         fd;
-    int         account_type; /* 1: center, 2:user*/
-    char        username[10];
-    char        passwd[10];
+    int         account_id;
 }clientInfo_t;
 clientInfo_t clientInfo[MAX_CLIENT_NUM];
 
@@ -49,6 +40,62 @@ clientInfo_t *client_info_get(void)
     return 0;
 }
 
+typedef struct account_s{
+    char *username;
+    int user_priv;  /* 1: high,     2: middle,      3: low  */
+    int online;     /* 1: online,   0: offline              */
+}account_t;
+
+account_t accounts[]={
+    {.username = "center", .user_priv = 1, .online = 0},
+    {.username = "user1",  .user_priv = 2, .online = 0},
+    {.username = "user2",  .user_priv = 2, .online = 0},
+    {.username = "user3",  .user_priv = 3, .online = 0},
+    {.username = "NONE"}
+};
+
+int account_check(clientInfo_t *cinfo)
+{
+    int i;
+    char rec[BUFF_SIZE];
+
+    send(cinfo->fd, pjcmd[CLIENT_CMD_user].cmd_str,strlen(pjcmd[CLIENT_CMD_user].cmd_str), 0);
+    memset((void *)rec,0,sizeof(rec));
+    recv(cinfo->fd, rec, sizeof(rec),0);
+    i=0;
+    do{
+        if(strncmp(accounts[i].username, rec, strlen(accounts[i].username))==0)
+        {
+            if( accounts[i].online == 1)
+            {
+                send(cinfo->fd, pjcmd[CLIENT_CMD_userexist].cmd_str,strlen(pjcmd[CLIENT_CMD_userexist].cmd_str), 0);
+                return -1;
+            }else{
+                cinfo->account_id = i;
+                goto password_check;
+            }
+        }
+        i++;
+    }while(strncmp(accounts[i].username, "NONE", strlen(accounts[i].username)!=0));
+    return -1;
+
+password_check:
+    memset((void *)rec,0,sizeof(rec));
+    send(cinfo->fd, pjcmd[CLIENT_CMD_password].cmd_str,strlen(pjcmd[CLIENT_CMD_password].cmd_str), 0);
+    memset((void *)rec,0,sizeof(rec));
+    recv(cinfo->fd, rec, sizeof(rec),0);
+    if(strncmp(accounts[cinfo->account_id].username, rec, strlen(accounts[cinfo->account_id].username))==0)
+    {
+        accounts[cinfo->account_id].online = 1;
+        send(cinfo->fd, pjcmd[CLIENT_CMD_welcome].cmd_str,strlen(pjcmd[CLIENT_CMD_welcome].cmd_str), 0);
+        return 0;
+    }
+    send(cinfo->fd, pjcmd[CLIENT_CMD_userretry].cmd_str,strlen(pjcmd[CLIENT_CMD_userretry].cmd_str), 0);
+    return -1;
+
+}
+
+
 void customer_add(clientInfo_t *cinfo)
 {
     pthread_mutex_lock(&server_db_mutex);
@@ -56,74 +103,57 @@ void customer_add(clientInfo_t *cinfo)
     pthread_mutex_unlock(&server_db_mutex);
 }
 
-
-int cmd_str_parse(char *rcv, int *cmd, clientInfo_t *cinfo)
+int priv_check(int cmd, clientInfo_t *cinfo)
 {
-    if(strncmp("Check", rcv, strlen("Check"))==0)
-    {
-        *cmd = CLIENT_CMD_Check;
-    }
-    else if(strncmp("Lock", rcv, strlen("Lock"))==0)
-    {
-        *cmd = CLIENT_CMD_Lock;
-    }
-    else if(strncmp("Unlock", rcv, strlen("Unlock"))==0)
-    {
-        *cmd = CLIENT_CMD_Unlock;
-    }
-    else if(strncmp("Clear Alarm", rcv, strlen("Clear Alarm"))==0)
-    {
-        *cmd = CLIENT_CMD_ClearAlarm;
-    }
-    else if(strncmp("Video", rcv, strlen("Video"))==0)
-    {
-        *cmd = CLIENT_CMD_Video;
-    }
-    else if(strncmp("Quit", rcv, strlen("Quit"))==0)
-    {
-        *cmd = CLIENT_CMD_Quit;
-    }
-    else
-    {
-        *cmd = CLIENT_CMD_WRONG;
-        return -1;
-    }
+    char *str;
 
-    return 0;
+    if(pjcmd[cmd].priv >= accounts[cinfo->account_id].user_priv)
+        return 0;
+
+    str="MSG: no privilege";
+    send(cinfo->fd, str,strlen(str), 0);
+    return -1;
 }
-
 
 int user_cmd_handle(clientInfo_t *cinfo)
 {
     int cmd;
-    char rec[256];
+    char buff[BUFF_SIZE], *str;
 
     while(1)
     {
-        memset(rec, 0, sizeof(rec));
-        recv(cinfo->fd, rec, sizeof(rec),0);
-        cmd_str_parse(rec,&cmd,cinfo);
-        //printf("GOT: cmd=%d, meal_ID=%d, quantity=%d\n",cmd,meal_ID,quantity);
+        memset(buff, 0, sizeof(buff));
+        if(recv(cinfo->fd, buff, sizeof(buff),0)==0)
+            return 0;
+        cmd_str_parse(buff,&cmd);
+        if(priv_check(cmd,cinfo)==-1)
+            continue;
         switch (cmd){
-
-            case CLIENT_CMD_Check:
+            case CLIENT_CMD_check:
+                str="MSG:here is check result";
+                send(cinfo->fd, str,strlen(str), 0);
                 break;
-
-            case CLIENT_CMD_Lock:
+            case CLIENT_CMD_lock:
+                str="MSG:door lock!";
+                send(cinfo->fd, str,strlen(str), 0);
                 break;
-
-            case CLIENT_CMD_Unlock:
+            case CLIENT_CMD_unlock:
+                str="MSG:door unlock!";
+                send(cinfo->fd, str,strlen(str), 0);
                 break;
-
-            case CLIENT_CMD_ClearAlarm:
+            case CLIENT_CMD_clearalarm:
+                str="MSG:door alarm clear!";
+                send(cinfo->fd, str,strlen(str), 0);
                 break;
-
-            case CLIENT_CMD_Video:
+            case CLIENT_CMD_video:
+                str="MSG:video is here";
+                send(cinfo->fd, str,strlen(str), 0);
                 break;
-
-            case CLIENT_CMD_Quit:
+            case CLIENT_CMD_quit:
                 return 0;
-
+            case CLIENT_CMD_msg:
+                printf("%s",buff);
+                break;
             default:
                 break;
         }//switch()
@@ -171,54 +201,19 @@ void server_sigint_handler(int sig)
     exit(0);
 }
 
-int account_check(clientInfo_t *cinfo)
-{
-    char rec[256];
-    send(cinfo->fd, "user:",strlen("user:"), 0);
-    recv(cinfo->fd, rec, sizeof(rec),0);
-
-    memset((void *)rec,0,sizeof(rec));
-    if(strncmp("center", rec, strlen("center"))==0)
-    {
-        strncpy(cinfo->username, "center", strlen("center"));
-        cinfo->account_type = 1;
-    }
-    else if( (strncmp("user1", rec, strlen("user1"))==0)||
-             (strncmp("user2", rec, strlen("user2"))==0) ||
-             (strncmp("user3", rec, strlen("user3"))==0)
-            )
-    {
-        strncpy(cinfo->username, rec, strlen(rec));
-        cinfo->account_type = 2;
-    }
-    else
-    {
-        return -1;
-    }
-
-    memset((void *)rec,0,sizeof(rec));
-    send(cinfo->fd, "password:",strlen("password:"), 0);
-    recv(cinfo->fd, rec, sizeof(rec),0);
-
-    if(strncmp(cinfo->username, rec, strlen(cinfo->username))==0)
-    {
-        send(cinfo->fd, "welcome",strlen("welcome"), 0);
-        return 0;
-    }
-
-    send(cinfo->fd, "Please try again",strlen("Please try again"), 0);
-    return -1;
-
-}
 
 void* client_task(void* p) {
-    clientInfo_t *info = (clientInfo_t *)p;
+    clientInfo_t *cinfo = (clientInfo_t *)p;
 
-    while( account_check(info) == -1){}
+    while( account_check(cinfo) == -1){}
 
-    user_cmd_handle(info);
-    info->used =0;
-    close(info->fd);
+    user_cmd_handle(cinfo);
+
+    printf("%s leaves!\n",accounts[cinfo->account_id].username);
+    sleep(1);
+    cinfo->used =0;
+    accounts[cinfo->account_id].online = 0;
+    close(cinfo->fd);
     pthread_exit(NULL);
 }
 
@@ -238,6 +233,7 @@ int pj_client_handle(int socket_fd)
             return -1;
         }
         client_info = client_info_get();
+
         if(client_info != 0)
         {
             client_info->fd=acceptFd;

@@ -13,45 +13,124 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <sys/select.h>
+#include "project.h"
 
+int sockFd;
 
-char rec[256];
 int socket_msg_handle(int fd)
 {
-    int n;
+    char buffer[BUFF_SIZE];
+    int cmd, ret, n;
 
-    //memset((void *)rec, 0, sizeof(rec));
-    n = recv(fd, rec, sizeof(rec),0);
-    printf("%s\n",rec);
-    if (strncmp("Meal completed and you need to pay",rec, strlen("Meal completed and you need to pay"))==0)
-        return -1;
+    do{
+        memset((void *)buffer, 0, sizeof(buffer));
+        n = recv(fd, buffer, sizeof(buffer),0);
+        ret = cmd_str_parse(buffer, &cmd);
+        if(cmd==CLIENT_CMD_quit)
+        {
+            return -1;
+        }
+    }while(ret!=0);
+
+    switch(cmd){
+        case CLIENT_CMD_userexist:
+            printf("User exist. ");
+        case CLIENT_CMD_userretry:
+            printf("Please try again!\n");
+        case CLIENT_CMD_user:
+            printf("user:");
+            memset((void *)buffer, 0, sizeof(buffer));
+            fgets(buffer, BUFF_SIZE, stdin);
+            send(fd, buffer, strlen(buffer), 0);
+            break;
+        case CLIENT_CMD_password:
+            printf("password:");
+            memset((void *)buffer, 0, sizeof(buffer));
+            fgets(buffer, BUFF_SIZE, stdin);
+            send(fd, buffer, strlen(buffer), 0);
+            break;
+        case CLIENT_CMD_welcome:
+            printf("%s\n",pjcmd[CLIENT_CMD_welcome].cmd_str);
+            break;
+        case CLIENT_CMD_msg:
+            printf("%s\n",buffer);
+            break;
+        case CLIENT_CMD_none:
+        default:
+            break;
+    }
+    return 0;
 }
 
 int user_cmd_handle(int fd)
 {
     char userCmd[256];
+    int cmd, ret;
 
-    fgets(userCmd, 256, stdin);
-    //printf("user input=%s",userCmd);
-    if(strncmp(userCmd,"Cancel",6)==0)
-        return -1;
-    send(fd,userCmd, strlen(userCmd), 0);
+    do{
+        fgets(userCmd, 256, stdin);
+
+        ret = cmd_str_parse(userCmd, &cmd);
+        if(cmd==CLIENT_CMD_quit)
+        {
+            return -1;
+        }
+    }while(ret!=0);
+
+    switch(cmd){
+        case CLIENT_CMD_check:
+            send(fd, userCmd, strlen(userCmd), 0);
+            break;
+        case CLIENT_CMD_lock:
+            send(fd, userCmd, strlen(userCmd), 0);
+            break;
+        case CLIENT_CMD_unlock:
+            send(fd, userCmd, strlen(userCmd), 0);
+            break;
+        case CLIENT_CMD_clearalarm:
+            send(fd, userCmd, strlen(userCmd), 0);
+            break;
+        case CLIENT_CMD_video:
+            send(fd, userCmd, strlen(userCmd), 0);
+            break;
+        case CLIENT_CMD_quit:
+            break;
+        case CLIENT_CMD_none:
+        default:
+            break;
+    }
+
     return 0;
 }
 
 
 int main(int argc, char *argv[])
 {
-    int sockFd;
     struct sockaddr_in server_sin;
     fd_set readfds;
     int nfds;
+    int user_input_i,i;
+    char *user_input_s;
+    int user_port;
+    char *user_ip;
+
+    if (argc != 3)
+    {
+        printf("ERROR: Need two and only two parameter!\n");
+        return -1;
+    }
+    else
+    {
+        user_ip = argv[1];
+        user_port = atoi(argv[2]);
+
+    }
 
     sockFd = socket(AF_INET, SOCK_STREAM, 0);
     memset(&server_sin, 0, sizeof(server_sin));
     server_sin.sin_family = AF_INET;
-    server_sin.sin_port = htons(4444);
-    inet_pton(AF_INET, "127.0.0.1", &server_sin.sin_addr.s_addr);
+    server_sin.sin_port = htons(user_port);
+    inet_pton(AF_INET, user_ip, &server_sin.sin_addr.s_addr);
 
     connect(sockFd, (struct sockaddr *)&server_sin, sizeof(server_sin));
 

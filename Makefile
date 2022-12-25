@@ -1,25 +1,27 @@
 
-export CROSS_COMPILE=aarch64-linux-gnu-
-export ARCH=arm64
+#export CROSS_COMPILE=aarch64-linux-gnu-
+#export ARCH=arm64
+#sudo date  --s="2022-12-24 15:36:00"
+#sudo timedatectl set-timezone Asia/Taipei
 
 obj-m += mydev.o
 KDIR = ../linux
 
-all: server client mydev
+all: server client
 
-mydev: mydev.c
+mydev: mydev.c project.h
 	make -C $(KDIR) M=$(shell pwd) modules
 
-server: server.c
-	$(CROSS_COMPILE)gcc server.c -o server
+server: server.c project.h
+	$(CROSS_COMPILE)gcc server.c -o server -lpthread
 #	gcc server.c -o server
 
-client: client.c
+client: client.c project.h
 	$(CROSS_COMPILE)gcc client.c -o client
 #	gcc client.c -o client
 
 clean:
-	make -C $(KDIR) M=$(shell pwd) clean
+#	make -C $(KDIR) M=$(shell pwd) clean
 	@if [ -f "server" ]; then rm server ; fi
 	@if [ -f "client" ]; then rm client ; fi
 
