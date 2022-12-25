@@ -207,7 +207,7 @@ void Take10sVideo(char* Name, uint64_t VideoNumber)
 		Name = DefaultName;
 	}
 	snprintf(CommandPacket.RawData, sizeof(CommandPacket.RawData), "%s%lu.h264", Name, VideoNumber);
-	snprintf(CommandString, COMMAND_STRING_SIZE, "libcamera-vid -t 10000 -n --width 640 --height 480 --framerate 10 -o %s", CommandPacket.RawData);
+	snprintf(CommandString, COMMAND_STRING_SIZE, "libcamera-vid -t 10000 -n --width 640 --height 480 -o %s", CommandPacket.RawData);
 #if (PRINT_MESSAGE_ENABLE != 0)
 	printf("System(%s)\n", CommandString);
 #endif
