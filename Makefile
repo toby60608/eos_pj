@@ -4,8 +4,8 @@ export ARCH=arm64
 #sudo date  --s="2022-12-25 14:55:00"
 #sudo timedatectl set-timezone Asia/Taipei
 
-#obj-m += mydev.o
-obj-m += driver.o
+obj-m += mydev.o
+#obj-m += driver.o
 #KDIR = ../linux
 KDIR = /lib/modules/$(shell uname -r)/build
 
