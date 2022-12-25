@@ -104,12 +104,10 @@ int unlock_handler(clientInfo_t *cinfo)
     srand (time(NULL));
     passcode = rand();
     send(cinfo->fd, pjcmd[CLIENT_CMD_unlockpasscode].cmd_str,strlen(pjcmd[CLIENT_CMD_unlockpasscode].cmd_str), 0);
-    char cmd[100]="./eos_pj/WiringPi/examples/lcd-eos7 6 ";
+    char cmd[100]="sudo /home/pi/eos_pj/WiringPi/examples/lcd-eos7 6 ";
     char pass_str[80];
     sprintf(pass_str, "%d", passcode);
     strcat(cmd,pass_str);
-    strcat(cmd," ");
-    strcat(cmd,"");
     system(cmd);
     printf("passcode=%d\n",passcode);
     memset((void *)buf,0,sizeof(buf));

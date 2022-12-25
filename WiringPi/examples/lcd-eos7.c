@@ -74,7 +74,7 @@ static int lcdHandle;
 
 int usage(const char *progName)
 {
-    fprintf(stderr, "Usage: %s colour line1 line2\n", progName);
+    fprintf(stderr, "Usage: %s colour line1\n", progName);
     return EXIT_FAILURE;
 }
 
@@ -149,14 +149,14 @@ static void adafruitLCDSetup(int colour)
 int main(int argc, char *argv[])
 {
     int colour;
-    char line1[17]={0};
-    char line2[17]={0};
+    char line1[10]={0};
+    //char line2[17]={0};
     
-    if (argc != 4)
+    if (argc != 3)
         return usage(argv[0]);
 
     strcpy(line1,argv[2]);
-    strcpy(line2,argv[3]);
+    //strcpy(line2,argv[3]);
 
     colour = atoi(argv[1]);
  
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     mcp23017Setup(AF_BASE, 0x20);
     adafruitLCDSetup(colour);
 
-    if (strstr(line1, "0") != NULL && strstr(line2, "0") != NULL)
+    if (strcmp(line1, "0") == 0)
     {
         lcdClear(lcdHandle);
     }
@@ -172,8 +172,10 @@ int main(int argc, char *argv[])
     {
         lcdPosition(lcdHandle, 0, 0);
         lcdPuts(lcdHandle, line1);
-        lcdPosition(lcdHandle, 0, 1);
-        lcdPuts(lcdHandle, line2);
+        
+        //if(strstr(line2, "0")==NULL)  
+        //    lcdPosition(lcdHandle, 0, 1);
+        //    lcdPuts(lcdHandle, line2);
     }
     
     return 0;
