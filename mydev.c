@@ -1,5 +1,5 @@
 
-/***************************************************************************/ 
+/***************************************************************************/
 /**
  * \file led_driver.c
  * \details Simple GPIO driver explanation
@@ -51,7 +51,7 @@ void mydev_gpio_set_value(unsigned gpio, int value)
     gpio_set_value(gpio, value);
 #endif
     printk("gpio %d --> %d\n",gpio,value);
-    
+
     if (value==1)
         virtual_gpio |= (0x1 << gpio);
     if (value==0)
@@ -78,7 +78,6 @@ void mydev_virtual_dev_get(int *d)
 }
 
 /* normal LED */
-#define NORMAL_LED_GPIO_PIN     21
 
 /* 7-eg LED */
 /* map 7-seg pgfedcba tp GPIO pin */
@@ -90,13 +89,16 @@ typedef struct gpio_info
     bool requested;
 }gpio_into_S;
 
+/* camera will use GPIO 0 1 7 8 18 19 20 21 */
+
+#define NORMAL_LED_GPIO_PIN     22 //21
 gpio_into_S gpioInfo[LED_SEGMENT_NUM] = {
-    {.seg_name = 'p', .gpio_pin = 18, .requested = false},
+    {.seg_name = 'p', .gpio_pin = 17, .requested = false}, //18
     {.seg_name = 'g', .gpio_pin = 23, .requested = false},
     {.seg_name = 'f', .gpio_pin = 24, .requested = false},
     {.seg_name = 'e', .gpio_pin = 25, .requested = false},
-    {.seg_name = 'd', .gpio_pin =  8, .requested = false},
-    {.seg_name = 'c', .gpio_pin =  7, .requested = false},
+    {.seg_name = 'd', .gpio_pin = 26, .requested = false}, //8
+    {.seg_name = 'c', .gpio_pin = 27, .requested = false}, //7
     {.seg_name = 'b', .gpio_pin = 12, .requested = false},
     {.seg_name = 'a', .gpio_pin = 16, .requested = false},
 };

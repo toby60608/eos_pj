@@ -13,6 +13,9 @@ all: server client
 mydev: mydev.c project.h
 	make -C $(KDIR) M=$(shell pwd) modules
 
+driver: driver.c
+	make -C $(KDIR) M=$(shell pwd) modules
+
 writer: writer.c project.h
 #	$(CROSS_COMPILE)gcc writer.c -o writer
 	gcc writer.c -o writer
