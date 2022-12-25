@@ -52,6 +52,13 @@ int socket_msg_handle(int fd)
         case CLIENT_CMD_welcome:
             printf("%s\n",pjcmd[CLIENT_CMD_welcome].cmd_str);
             break;
+        case CLIENT_CMD_unlockpasscode:
+            printf("%s",pjcmd[CLIENT_CMD_unlockpasscode].cmd_str);
+            memset((void *)buffer, 0, sizeof(buffer));
+            fgets(buffer, BUFF_SIZE, stdin);
+            send(fd, buffer, strlen(buffer), 0);
+            break;
+            break;
         case CLIENT_CMD_msg:
             printf("%s\n",buffer);
             break;
@@ -64,11 +71,11 @@ int socket_msg_handle(int fd)
 
 int user_cmd_handle(int fd)
 {
-    char userCmd[256];
+    char userCmd[BUFF_SIZE];
     int cmd, ret;
 
     do{
-        fgets(userCmd, 256, stdin);
+        fgets(userCmd, BUFF_SIZE, stdin);
 
         ret = cmd_str_parse(userCmd, &cmd);
         if(cmd==CLIENT_CMD_quit)

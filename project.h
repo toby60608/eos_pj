@@ -9,6 +9,7 @@ typedef enum {
     CLIENT_CMD_check=0,
     CLIENT_CMD_lock,
     CLIENT_CMD_unlock,
+    CLIENT_CMD_unlockpasscode,
     CLIENT_CMD_clearalarm,
     CLIENT_CMD_video,
     CLIENT_CMD_quit,
@@ -28,19 +29,20 @@ typedef struct pj_commands_s{
 }pj_commands_t;
 
 static pj_commands_t pjcmd[]={
-    {.cmd=CLIENT_CMD_check,       .cmd_str="check"            , .priv=3},
-    {.cmd=CLIENT_CMD_lock,        .cmd_str="lock"             , .priv=3},
-    {.cmd=CLIENT_CMD_unlock,      .cmd_str="unlock"           , .priv=2},
-    {.cmd=CLIENT_CMD_clearalarm,  .cmd_str="clearalarm"       , .priv=1},
-    {.cmd=CLIENT_CMD_video,       .cmd_str="video"            , .priv=3},
-    {.cmd=CLIENT_CMD_quit,        .cmd_str="quit"             , .priv=3},
-    {.cmd=CLIENT_CMD_user,        .cmd_str="user:"            , .priv=3},
-    {.cmd=CLIENT_CMD_password,    .cmd_str="password:"        , .priv=3},
-    {.cmd=CLIENT_CMD_userretry,   .cmd_str="Please try again!", .priv=3},
-    {.cmd=CLIENT_CMD_welcome,     .cmd_str="Welcome!"         , .priv=3},
-    {.cmd=CLIENT_CMD_userexist,   .cmd_str="User exists!"     , .priv=3},
-    {.cmd=CLIENT_CMD_msg,         .cmd_str="MSG:"             , .priv=3},
-    {.cmd=CLIENT_CMD_none,        .cmd_str="none"             , .priv=3}
+    {.cmd=CLIENT_CMD_check,             .cmd_str="check"            , .priv=3},
+    {.cmd=CLIENT_CMD_lock,              .cmd_str="lock"             , .priv=3},
+    {.cmd=CLIENT_CMD_unlock,            .cmd_str="unlock"           , .priv=2},
+    {.cmd=CLIENT_CMD_unlockpasscode,    .cmd_str="Passcode please:"  , .priv=2},
+    {.cmd=CLIENT_CMD_clearalarm,        .cmd_str="clearalarm"       , .priv=1},
+    {.cmd=CLIENT_CMD_video,             .cmd_str="video"            , .priv=3},
+    {.cmd=CLIENT_CMD_quit,              .cmd_str="quit"             , .priv=3},
+    {.cmd=CLIENT_CMD_user,              .cmd_str="user:"            , .priv=3},
+    {.cmd=CLIENT_CMD_password,          .cmd_str="password:"        , .priv=3},
+    {.cmd=CLIENT_CMD_userretry,         .cmd_str="Please try again!", .priv=3},
+    {.cmd=CLIENT_CMD_welcome,           .cmd_str="Welcome!"         , .priv=3},
+    {.cmd=CLIENT_CMD_userexist,         .cmd_str="User exists!"     , .priv=3},
+    {.cmd=CLIENT_CMD_msg,               .cmd_str="MSG:"             , .priv=3},
+    {.cmd=CLIENT_CMD_none,              .cmd_str="none"             , .priv=3}
 };
 
 static int cmd_str_parse(char *rcv, int *cmd)

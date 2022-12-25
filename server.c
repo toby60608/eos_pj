@@ -54,6 +54,36 @@ account_t accounts[]={
     {.username = "NONE"}
 };
 
+int unlock_handler(clientInfo_t *cinfo)
+{
+    char buf[BUFF_SIZE],*str;
+    int passcode = rand();
+    int user_passcode;
+
+    srand (time(NULL));
+    passcode = rand();
+    send(cinfo->fd, pjcmd[CLIENT_CMD_unlockpasscode].cmd_str,strlen(pjcmd[CLIENT_CMD_unlockpasscode].cmd_str), 0);
+    printf("passcode=%d\n",passcode);
+    memset((void *)buf,0,sizeof(buf));
+    recv(cinfo->fd, buf, sizeof(buf),0);
+    user_passcode = atoi(buf);
+
+    if(user_passcode==passcode)
+    {
+        str="MSG:security is unlocked";
+        printf("%s\n",str);
+        send(cinfo->fd, str,strlen(str), 0);
+        return 0;
+    }
+    else
+    {
+        str="MSG:security is NOT unlocked";
+        printf("%s\n",str);
+        send(cinfo->fd, str,strlen(str), 0);
+        return -1;
+    }
+}
+
 int account_check(clientInfo_t *cinfo)
 {
     int i;
@@ -138,8 +168,7 @@ int user_cmd_handle(clientInfo_t *cinfo)
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_unlock:
-                str="MSG:door unlock!";
-                send(cinfo->fd, str,strlen(str), 0);
+                unlock_handler(cinfo);
                 break;
             case CLIENT_CMD_clearalarm:
                 str="MSG:door alarm clear!";
