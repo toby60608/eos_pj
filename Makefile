@@ -4,17 +4,18 @@ export ARCH=arm64
 #sudo date  --s="2022-12-25 14:55:00"
 #sudo timedatectl set-timezone Asia/Taipei
 
-obj-m += mydev.o
-KDIR = ../linux
-#KDIR = /lib/modules/$(shell uname -r)
+#obj-m += mydev.o
+obj-m += driver.o
+#KDIR = ../linux
+KDIR = /lib/modules/$(shell uname -r)/build
 
 all: server client
 
 mydev: mydev.c project.h
-	make -C $(KDIR) M=$(shell pwd) modules
+	sudo make -C $(KDIR) M=$(shell pwd) modules
 
 driver: driver.c
-	make -C $(KDIR) M=$(shell pwd) modules
+	sudo make -C $(KDIR) M=$(shell pwd) modules
 
 writer: writer.c project.h
 #	$(CROSS_COMPILE)gcc writer.c -o writer
