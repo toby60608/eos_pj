@@ -1,1 +1,0 @@
-cmd_/home/pi/eos_pj/driver.ko := ld -r -EL  -maarch64elf -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/pi/eos_pj/driver.ko /home/pi/eos_pj/driver.o /home/pi/eos_pj/driver.mod.o;  true
