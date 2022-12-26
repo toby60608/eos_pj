@@ -18,7 +18,7 @@
 #include <linux/uaccess.h> //copy_to/from_user()
 #include <linux/gpio.h>    //GPIO
 #include <linux/kstrtox.h>
-
+#include <linux/interrupt.h>
 
 
 dev_t dev = 0;
@@ -41,7 +41,6 @@ static ssize_t etx_write(struct file *filp,
 #define DEV_INPUT_NORMAL_LED_ON     51
 #define DEV_INPUT_NORMAL_LED_OFF    52
 #define DEV_INPUT_7SEG_OFF          53
-
 
 /* virtual device */
 unsigned long long virtual_gpio=0;
@@ -77,11 +76,13 @@ void mydev_virtual_dev_get(int *d)
     }
 }
 
-/* normal LED */
-
+/* normal LED & interrupt */
+#define NORMAL_LED_GPIO_PIN         22 //21
+#define INTERRUPT_GPIO_PIN          12
+unsigned int irq_number;
 /* 7-eg LED */
 /* map 7-seg pgfedcba tp GPIO pin */
-#define LED_SEGMENT_NUM    8
+#define LED_SEGMENT_NUM         8
 typedef struct gpio_info
 {
     char seg_name;
@@ -91,7 +92,7 @@ typedef struct gpio_info
 
 /* camera will use GPIO 0 1 7 8 18 19 20 21 */
 
-#define NORMAL_LED_GPIO_PIN     22 //21
+
 gpio_into_S gpioInfo[LED_SEGMENT_NUM] = {
     {.seg_name = 'p', .gpio_pin = 17, .requested = false}, //18
     {.seg_name = 'g', .gpio_pin = 13, .requested = false}, //23
@@ -249,7 +250,9 @@ static ssize_t etx_write(struct file *filp,
     return len;
 }
 
-int mydev_gpio_init(int pin)
+#define GPIO_IN     1
+#define GPIO_OUT    0
+int mydev_gpio_init(int pin, int direction)
 {
     char name[20]={0};
 
@@ -264,11 +267,23 @@ int mydev_gpio_init(int pin)
         pr_err("ERROR: GPIO %d request\n", pin);
         return -1;
     }
-    gpio_direction_output(pin, 0);
+    if(direction==GPIO_OUT)
+        gpio_direction_output(pin, 0);
+    if(direction==GPIO_IN)
+        gpio_direction_input(pin);
     gpio_export(pin, false);
     return 0;
 }
 
+
+static irqreturn_t gpio_button_isr(int irq,void *dev_id)
+{
+  static unsigned long flags = 0;
+  local_irq_save(flags);
+
+  local_irq_restore(flags);
+  return IRQ_HANDLED;
+}
 
 /*
 ** Module Init function
@@ -307,12 +322,27 @@ static int __init etx_driver_init(void)
         int pin;
         for(pin=0;pin<LED_SEGMENT_NUM;pin++)
         {
-            if (mydev_gpio_init(gpioInfo[pin].gpio_pin) == -1)
+            if (mydev_gpio_init(gpioInfo[pin].gpio_pin,GPIO_OUT) == -1)
                 goto r_device;
         }
     }
-    if( mydev_gpio_init(NORMAL_LED_GPIO_PIN) == -1)
+    if( mydev_gpio_init(NORMAL_LED_GPIO_PIN,GPIO_OUT) == -1)
         goto r_device;
+
+    /* GPIO interrupt init */
+    if( mydev_gpio_init(INTERRUPT_GPIO_PIN,GPIO_IN) == -1)
+        goto r_device;
+#if 0
+    if(gpio_set_debounce(INTERRUPT_GPIO_PIN, 200) < 0){
+        pr_err("set %d debounce fail\n", INTERRUPT_GPIO_PIN);
+    }
+#endif
+    irq_number = gpio_to_irq(INTERRUPT_GPIO_PIN);
+    if (request_irq(irq_number,(void *)gpio_button_isr,IRQF_TRIGGER_RISING, "etx_device", NULL))
+    {
+        pr_err("register IRQ fail");
+        goto r_device;
+    }
 
     pr_info("Device Driver Insert...Done!!!\n");
     return 0;
@@ -334,6 +364,8 @@ static void __exit etx_driver_exit(void)
 {
     gpio_unexport(NORMAL_LED_GPIO_PIN);
     gpio_free(NORMAL_LED_GPIO_PIN);
+    gpio_unexport(INTERRUPT_GPIO_PIN);
+    gpio_free(INTERRUPT_GPIO_PIN);
     device_destroy(dev_class, dev);
     class_destroy(dev_class);
     cdev_del(&etx_cdev);
