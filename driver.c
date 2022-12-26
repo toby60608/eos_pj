@@ -10,14 +10,15 @@
 #include <linux/gpio.h>
 #include <linux/string.h>
 
+// 7_SEG is connected to this GPIO
+#define GPIO_5 5
+
+// BUZZER  LED is connected to this GPIO
+#define GPIO_6 6
+
 // BUTTON is connected to this GPIO
 #define GPIO_16 16
 
-// BUZZER is connected to this GPIO
-#define GPIO_20 20
-
-// LED is connected to this GPIO
-#define GPIO_21 21
 
 dev_t dev = 1;
 static struct class *dev_class;
@@ -30,6 +31,7 @@ static int etx_open(struct inode *inode, struct file *file);
 static int etx_release(struct inode *inode, struct file *file);
 static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t *off);
 static ssize_t etx_write(struct file *filp, const char *buf, size_t len, loff_t *off);
+
 /******************************************************/
 
 // File operation structure
@@ -41,6 +43,7 @@ static struct file_operations fops = {
     .release = etx_release,
 };
 
+
 /*
  This function will be called when we open the Device file
 */
@@ -49,6 +52,7 @@ static int etx_open(struct inode *inode, struct file *file)
   pr_info("Device File Opened...!!!\n");
   return 0;
 }
+
 
 /*
  This function will be called when we close the Device file
@@ -59,29 +63,37 @@ static int etx_release(struct inode *inode, struct file *file)
   return 0;
 }
 
+
 /*
  This function will be called when we read the Device file
 */
 static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
-  uint8_t gpio_state = 0;
 
-  printk("read in");
-
-  if (strstr(buf, "btn") != NULL)
-  {
-
-    gpio_state = gpio_get_value(GPIO_16);
-    len = sizeof(gpio_state);
-    if (copy_to_user(buf, &gpio_state, len) > 0)
-    {
-      pr_err("ERROR: BUTTON copied to user fail !!!\n");
+ uint8_t gpio_state = 0;
+ char str_gpio[5];
+  
+  if(strstr(buf,"btn")!=NULL){
+	  
+    gpio_state = gpio_get_value(GPIO_16); 
+    
+    
+    sprintf(str_gpio,"%d",gpio_state);
+    strcat(buf,"_");
+    strcat(buf,str_gpio);
+    
+    len = sizeof(buf);
+    
+    if (copy_to_user(buf, &buf, len) > 0){
+      pr_err("BUTTON ERROR: Copied to user fail !!!\n");
     }
-    pr_info("Read BUTTON : GPIO_16 = %d \n", gpio_state);
+    pr_info("Read BUTTON : GPIO_ = %d \n", gpio_state);
+    
   }
 
   return 0;
 }
+
 
 /*
 ** This function will be called when we write the Device file
@@ -90,73 +102,59 @@ static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, 
 {
   // uint8_t rec_buf[10] = {0};
 
-  char rec_buf[50] = {0};
-  char *component = "";
-  char *act = "";
+  char rec_buf[10];
+  char *r=rec_buf;
+  char component[5];
+  char *c=component;
+  char act[2];
+  char *a=act ;
 
   if (copy_from_user(rec_buf, buf, len) > 0)
   {
     pr_err("ERROR: Not all the bytes have been copied from user\n");
   }
 
-  strscpy(component, buf, sizeof(buf));
-  component = strsep(&component, "_");
+  strscpy(rec_buf, buf, sizeof(buf));
+  c=strsep(&r, "_");
 
 
- if (strstr(component, "led") != NULL)
+ if (strstr(c, "seg") != NULL)
   {
 
-    act = strsep(NULL, "_");
-    pr_info("Write Function : GPIO_21 Set = %s\n", act);
-    if (strcmp(act, "1") == 0)
+    a = strsep(&c, "_");
+    pr_info("Write Function : GPIO_5 Set = %s\n", act);
+    
+    if (strcmp(a, "1") == 0)
     {
-      gpio_set_value(GPIO_21, 1);
+      gpio_set_value(GPIO_5, 1);
     }
-    else if (strcmp(act, "0") == 0)
+    else if (strcmp(a, "0") == 0)
     {
-      gpio_set_value(GPIO_21, 0);
+      gpio_set_value(GPIO_5, 0);
     }
     else
     {
-      pr_err("Unknown command : Please provide either 1 or 0 \n");
+      pr_err("LED ERROR: Please provide either 1 or 0 \n");
       return len;
     }
   }
-  else if (strstr(component, "buz") != NULL)
+  else if (strstr(c, "buz") != NULL)
   {
 
-    act = strsep(NULL, "_");
-    pr_info("Write Function : GPIO_20 Set = %s\n", act);
-    if (strcmp(act, "1") == 0)
+    a = strsep(&c, "_");
+    pr_info("Write Function : GPIO_6 Set = %s\n", act);
+    
+    if (strcmp(a, "1") == 0)
     {
-      gpio_set_value(GPIO_20, 1);
+      gpio_set_value(GPIO_6, 1);
     }
-    else if (strcmp(act, "0") == 0)
+    else if (strcmp(a, "0") == 0)
     {
-      gpio_set_value(GPIO_20, 0);
+      gpio_set_value(GPIO_6, 0);
     }
     else
     {
-      pr_err("Unknown command : Please provide either 1 or 0 \n");
-      return len;
-    }
-  }
-  else if (strstr(component, "btn") != NULL)
-  {
-
-    act = strsep(NULL, "_");
-    pr_info("Write Function : GPIO_16 Set = %s\n", act);
-    if (strcmp(act, "1") == 0)
-    {
-      gpio_set_value(GPIO_16, 1);
-    }
-    else if (strcmp(act, "0") == 0)
-    {
-      gpio_set_value(GPIO_16, 0);
-    }
-    else
-    {
-      pr_err("Unknown command : Please provide either 1 or 0 \n");
+      pr_err("BUZZER ERROR: Please provide either 1 or 0 \n");
       return len;
     }
   }
@@ -201,6 +199,19 @@ static int __init etx_driver_init(void)
     pr_err("Cannot create the Device \n");
     goto r_device;
   }
+  
+  // Requesting the GPIO
+  if (gpio_request(GPIO_5, "GPIO_5") < 0)
+  {
+    pr_err("ERROR: GPIO %d request\n", GPIO_5);
+    goto r_gpio;
+  }
+  // Requesting the GPIO
+  if (gpio_request(GPIO_6, "GPIO_6") < 0)
+  {
+    pr_err("ERROR: GPIO %d request\n", GPIO_6);
+    goto r_gpio;
+  }
 
   // Requesting the GPIO
   if (gpio_request(GPIO_16, "GPIO_16") < 0)
@@ -208,23 +219,12 @@ static int __init etx_driver_init(void)
     pr_err("ERROR: GPIO %d request\n", GPIO_16);
     goto r_gpio;
   }
-  // Requesting the GPIO
-  if (gpio_request(GPIO_20, "GPIO_20") < 0)
-  {
-    pr_err("ERROR: GPIO %d request\n", GPIO_20);
-    goto r_gpio;
-  }
-  // Requesting the GPIO
-  if (gpio_request(GPIO_21, "GPIO_21") < 0)
-  {
-    pr_err("ERROR: GPIO %d request\n", GPIO_21);
-    goto r_gpio;
-  }
+  
 
   // configure the GPIO as output
+  gpio_direction_output(GPIO_5, 0);
+  gpio_direction_output(GPIO_6, 0);
   gpio_direction_output(GPIO_16, 0);
-  gpio_direction_output(GPIO_20, 0);
-  gpio_direction_output(GPIO_21, 0);
 
   /* Using this call the GPIO 21 will be visible in /sys/class/gpio/
   ** Now you can change the gpio values by using below commands also.
@@ -233,17 +233,17 @@ static int __init etx_driver_init(void)
   ** cat /sys/class/gpio/gpio21/value (read the value LED) 
   **
   ** the second argument prevents the direction from being changed. */
+  gpio_export(GPIO_5, false);
+  gpio_export(GPIO_6, false);
   gpio_export(GPIO_16, false);
-  gpio_export(GPIO_20, false);
-  gpio_export(GPIO_21, false);
 
   pr_info("Device Driver Insert...Done!!!\n");
   return 0;
 
 r_gpio:
+  gpio_free(GPIO_5);
+  gpio_free(GPIO_6);
   gpio_free(GPIO_16);
-  gpio_free(GPIO_20);
-  gpio_free(GPIO_21);
 r_device:
   device_destroy(dev_class, dev);
 r_class:
@@ -261,12 +261,12 @@ r_unreg:
 */
 static void __exit etx_driver_exit(void)
 {
+  gpio_unexport(GPIO_5);
+  gpio_free(GPIO_5);
+  gpio_unexport(GPIO_6);
+  gpio_free(GPIO_6);
   gpio_unexport(GPIO_16);
   gpio_free(GPIO_16);
-  gpio_unexport(GPIO_21);
-  gpio_free(GPIO_20);
-  gpio_unexport(GPIO_21);
-  gpio_free(GPIO_21);
 
   device_destroy(dev_class, dev);
   class_destroy(dev_class);
