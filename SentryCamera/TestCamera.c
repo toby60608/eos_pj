@@ -475,6 +475,51 @@ int camera_ctl(int argc, char *argv[])
 				}
 				break;
 			}
+			case 16:
+			{
+				STRUCT_COMMAND_PACKET_T msg =
+				{
+					.MessageType = SENTRY_MODE_COMMAND_MESSAGE_TYPE,
+					.Id = ENUM_SENTRY_MODE_COMMAND_ID_CHECK_IS_SENTRY_MODE_ALARM,
+					.Length = 0,
+				};
+				printf("Send - id: 0x%02X, length: %d", msg.Id, msg.Length);
+				ret = msgsnd(MessageQueueId, &msg, sizeof(STRUCT_COMMAND_PACKET_T) - 4, 0);
+
+				memset (&msg, 0, sizeof(STRUCT_COMMAND_PACKET_T));
+				ret = msgrcv(MessageQueueId, &msg, sizeof(STRUCT_COMMAND_PACKET_T) - 4, SENTRY_MODE_COMMAND_MESSAGE_TYPE, 0);
+				break;
+			}
+			case 17:
+			{
+				STRUCT_COMMAND_PACKET_T msg =
+				{
+					.MessageType = SENTRY_MODE_COMMAND_MESSAGE_TYPE,
+					.Id = ENUM_SENTRY_MODE_COMMAND_ID_CLOSE_ALARM,
+					.Length = 0,
+				};
+				printf("Send - id: 0x%02X, length: %d", msg.Id, msg.Length);
+				ret = msgsnd(MessageQueueId, &msg, sizeof(STRUCT_COMMAND_PACKET_T) - 4, 0);
+
+				memset (&msg, 0, sizeof(STRUCT_COMMAND_PACKET_T));
+				ret = msgrcv(MessageQueueId, &msg, sizeof(STRUCT_COMMAND_PACKET_T) - 4, SENTRY_MODE_COMMAND_MESSAGE_TYPE, 0);
+				break;
+			}
+			case 18:
+			{
+				STRUCT_COMMAND_PACKET_T msg =
+				{
+					.MessageType = SENTRY_MODE_COMMAND_MESSAGE_TYPE,
+					.Id = ENUM_SENTRY_MODE_COMMAND_ID_TRIGGER_ALARM,
+					.Length = 0,
+				};
+				printf("Send - id: 0x%02X, length: %d", msg.Id, msg.Length);
+				ret = msgsnd(MessageQueueId, &msg, sizeof(STRUCT_COMMAND_PACKET_T) - 4, 0);
+
+				memset (&msg, 0, sizeof(STRUCT_COMMAND_PACKET_T));
+				ret = msgrcv(MessageQueueId, &msg, sizeof(STRUCT_COMMAND_PACKET_T) - 4, SENTRY_MODE_COMMAND_MESSAGE_TYPE, 0);
+				break;
+			}
 			default:
 			{
 				printf("[%s] No Function\n", __func__);

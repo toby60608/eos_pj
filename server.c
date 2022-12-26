@@ -49,6 +49,20 @@ void userInput_to_7segLED(char *s)
     }
 }
 
+typedef struct 
+{
+	char exit;
+	pthread_t ThreadId;
+	char* HighLevelString;
+	char* LowLevelString;
+}BTN_PARAMETER_T;
+
+BTN_PARAMETER_T BtnParameter = 
+{
+	.exit = 0,
+	.HighLevelString = "btn_0",
+	.LowLevelString = "btn_1",
+};
 int sockFd, resultFd;
 pthread_mutex_t server_db_mutex;
 
@@ -56,6 +70,7 @@ pthread_mutex_t server_db_mutex;
 typedef struct security_s{
     int security;   /* 1:open, 0:close */
     int door;       /* 1:open, 0:close */
+    int alarm;      /* 1:open, 0:close */
 }security_t;
 
 security_t securityDB;
@@ -215,6 +230,7 @@ int user_cmd_handle(clientInfo_t *cinfo)
                 char *StrArray[] = {"user", "11"};
                 camera_ctl(2,StrArray);
                 userInput_to_7segLED("1");
+                //write(fd,"seg_1",6);
                 securityDB.security=1;
                 str="MSG:secu lock!";
                 send(cinfo->fd, str,strlen(str), 0);
@@ -222,16 +238,31 @@ int user_cmd_handle(clientInfo_t *cinfo)
                 break;
             case CLIENT_CMD_unlock:
             {
+              if (securityDB.alarm == 0)
+              {
                 char *StrArray[] = {"user", "10"};
                 camera_ctl(2,StrArray);
                 userInput_to_7segLED("0");
+
                 securityDB.security=0;
                 unlock_handler(cinfo);
+              }
+              else
+              {
+                str="MSG:please clear alarm!";
+                send(cinfo->fd, str,strlen(str), 0);
+              }
             }
                 break;
             case CLIENT_CMD_clearalarm:
+            {
+                char *StrArray[] = {"user", "17"};
+                camera_ctl(2,StrArray);
+                //write(fd,"buz_0",6); //Stop Buzzer and LED
+                securityDB.alarm = 0;
                 str="MSG:door alarm clear!";
                 send(cinfo->fd, str,strlen(str), 0);
+            }
                 break;
             case CLIENT_CMD_video:
                 str="MSG:video is here";
@@ -283,7 +314,7 @@ int pj_server_create(int port_no)
 
 void server_sigint_handler(int sig)
 {
-
+    BtnParameter.exit = 1;
     pthread_mutex_destroy(&server_db_mutex);
     close(sockFd);
     exit(0);
@@ -333,6 +364,33 @@ int pj_client_handle(int socket_fd)
     return 0;
 }
 
+void* Btn_Handler(void* data)
+{
+	char result[16];
+	while(BtnParameter.exit == 0)
+	{
+		/*
+		read(fd, result,sizeof(result));
+		if (strcmp(result, BtnParameter.LowLevelString) == 0)
+		{
+			securityDB.door = 0;
+		}
+		else if (strcmp(result, BtnParameter.LowLevelString) == 1)
+		{
+			securityDB.door = 1;
+		}
+		if ((securityDB.security != 0) && (securityDB.door != 0))
+		{
+			securityDB.alarm = 1;
+			write(fd,"buz_1",6);
+			char *StrArray[] = {"user", "18"};
+      camera_ctl(2,StrArray);
+		}
+		*/
+		usleep(100);
+	}
+}
+
 int main(int argc, char *argv[])
 {
     int user_input_i,i;
@@ -359,6 +417,7 @@ int main(int argc, char *argv[])
     signal(SIGINT, server_sigint_handler);
     pthread_mutex_init(&server_db_mutex, 0);
     gpio_init();
+    pthread_create(&BtnParameter.ThreadId, NULL, Btn_Handler, NULL);
     pj_server_create(user_input_i);
     pj_client_handle(sockFd);
     close(sockFd);
