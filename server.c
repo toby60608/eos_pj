@@ -32,7 +32,14 @@ int gpio_init(void)
 }
 int write_a_digit_to_7segLED(int digit)
 {
-    write(etx_device_fd, (void *)&digit, sizeof(digit));
+    if(digit == 0)
+    {
+        write(etx_device_fd, "seg_0", 6);
+    }
+    else (digit > 0)
+    {
+        write(etx_device_fd, "seg_1", 6);
+    }
     return 0;
 }
 void userInput_to_7segLED(char *s)
@@ -134,6 +141,11 @@ int unlock_handler(clientInfo_t *cinfo)
         str="MSG:security is unlocked";
         printf("%s\n",str);
         send(cinfo->fd, str,strlen(str), 0);
+
+        char *StrArray[] = {"user", "10"};
+        camera_ctl(2,StrArray);
+        write_a_digit_to_7segLED(0);
+        securityDB.security=0;
         return 0;
     }
     else
@@ -229,8 +241,7 @@ int user_cmd_handle(clientInfo_t *cinfo)
             {
                 char *StrArray[] = {"user", "11"};
                 camera_ctl(2,StrArray);
-                userInput_to_7segLED("1");
-                //write(fd,"seg_1",6);
+                write_a_digit_to_7segLED(1);
                 securityDB.security=1;
                 str="MSG:secu lock!";
                 send(cinfo->fd, str,strlen(str), 0);
@@ -240,11 +251,6 @@ int user_cmd_handle(clientInfo_t *cinfo)
             {
               if (securityDB.alarm == 0)
               {
-                char *StrArray[] = {"user", "10"};
-                camera_ctl(2,StrArray);
-                userInput_to_7segLED("0");
-
-                securityDB.security=0;
                 unlock_handler(cinfo);
               }
               else
@@ -258,7 +264,7 @@ int user_cmd_handle(clientInfo_t *cinfo)
             {
                 char *StrArray[] = {"user", "17"};
                 camera_ctl(2,StrArray);
-                //write(fd,"buz_0",6); //Stop Buzzer and LED
+                write(etx_device_fd,"buz_0",6); //Stop Buzzer and LED
                 securityDB.alarm = 0;
                 str="MSG:door alarm clear!";
                 send(cinfo->fd, str,strlen(str), 0);
@@ -369,8 +375,7 @@ void* Btn_Handler(void* data)
 	char result[16];
 	while(BtnParameter.exit == 0)
 	{
-		/*
-		read(fd, result,sizeof(result));
+		read(etx_device_fd, result,sizeof(result));
 		if (strcmp(result, BtnParameter.LowLevelString) == 0)
 		{
 			securityDB.door = 0;
@@ -382,11 +387,10 @@ void* Btn_Handler(void* data)
 		if ((securityDB.security != 0) && (securityDB.door != 0))
 		{
 			securityDB.alarm = 1;
-			write(fd,"buz_1",6);
+			write(etx_device_fd,"buz_1",6);
 			char *StrArray[] = {"user", "18"};
       camera_ctl(2,StrArray);
 		}
-		*/
 		usleep(100);
 	}
 }
