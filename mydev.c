@@ -250,6 +250,23 @@ static ssize_t etx_write(struct file *filp,
     return len;
 }
 
+DECLARE_WAIT_QUEUE_HEAD(wait_queue_etx);
+int wait_queue_flag = 0;
+
+int wait_button(void *p)
+{
+
+    while(1) {
+        pr_info("Waiting for button....\n");
+        wait_event_interruptible(wait_queue_etx, wait_queue_flag != 0 );
+        pr_info("button pressed\n");
+        wait_queue_flag = 0;
+    }
+    do_exit(0);
+    return 0;
+}
+
+
 #define GPIO_IN     1
 #define GPIO_OUT    0
 int mydev_gpio_init(int pin, int direction)
@@ -278,10 +295,11 @@ int mydev_gpio_init(int pin, int direction)
 
 static irqreturn_t gpio_button_isr(int irq,void *dev_id)
 {
-  static unsigned long flags = 0;
-  local_irq_save(flags);
-
-  local_irq_restore(flags);
+//   static unsigned long flags = 0;
+//   local_irq_save(flags);
+    wait_queue_flag = 1;
+    wake_up_interruptible(&wait_queue_etx);
+//   local_irq_restore(flags);
   return IRQ_HANDLED;
 }
 
