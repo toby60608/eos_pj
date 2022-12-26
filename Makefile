@@ -6,16 +6,16 @@ export ARCH=arm64
 
 #obj-m += mydev.o
 obj-m += driver.o
-#KDIR = ../linux
-KDIR = /lib/modules/$(shell uname -r)/build
+KDIR = ../linux
+#KDIR = /lib/modules/$(shell uname -r)/build
 
-all: server client
+all: server client driver
 
 mydev: mydev.c project.h
-	sudo make -C $(KDIR) M=$(shell pwd) modules
+	sudo make -C $(KDIR) M=$(shell pwd) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) modules
 
 driver: driver.c
-	sudo make -C $(KDIR) M=$(shell pwd) modules
+	sudo make -C $(KDIR) M=$(shell pwd) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) modules
 
 writer: writer.c project.h
 #	$(CROSS_COMPILE)gcc writer.c -o writer
