@@ -11,7 +11,7 @@
 #include <linux/string.h>
 
 // 7_SEG is connected to this GPIO
-#define GPIO_5 29
+#define GPIO_5 5
 
 // BUZZER  LED is connected to this GPIO
 #define GPIO_6 6
