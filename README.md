@@ -26,7 +26,7 @@ pip install -U scikit-image
 
 sudo apt install wiringpi  
 
-(可改用以下git clone https://github.com/WiringPi/WiringPi並進資料夾 下sudo ./build) 安裝確認下sudo gpio readall  
+(可改用以下git clone https://github.com/WiringPi/WiringPi 並進資料夾 下sudo ./build) 安裝確認下sudo gpio readall  
 
 #在rpi板子上下載板子kernel的build  
 
@@ -39,7 +39,7 @@ sudo apt-get update; sudo apt-get install --reinstall raspberrypi-bootloader ras
 ------------------WiringPi只能在rpi板make---------------------  
 
 1.cd /WiringPi/examples  
-2.make  
+2.make lcd-eos7  
 3.會產生出執行檔(system(sudo /path light_color line1))  
 
 ------------------run prog---------------------  
