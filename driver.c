@@ -70,24 +70,33 @@ static int etx_release(struct inode *inode, struct file *file)
 static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
 
+ char rec_buf[10];
+
  uint8_t gpio_state = 0;
  char str_gpio[5];
+ 
+ if (copy_from_user(rec_buf, buf, len) > 0)
+  {
+    pr_err("ERROR: Not all the bytes have been copied from user\n");
+  }
   
-  if(strstr(buf,"btn")!=NULL){
-	  
+  if(strstr(rec_buf,"btn")!=NULL){
+    
+	  strcpy(rec_buf,"btn_");
+    
     gpio_state = gpio_get_value(GPIO_16); 
-    
-    
     sprintf(str_gpio,"%d",gpio_state);
-    strcat(buf,"_");
-    strcat(buf,str_gpio);
+    strcat(rec_buf,str_gpio);
     
-    len = sizeof(buf);
+    len = sizeof(rec_buf);
     
-    if (copy_to_user(buf, &buf, len) > 0){
+    if (copy_to_user(buf, &rec_buf, len) > 0){
       pr_err("BUTTON ERROR: Copied to user fail !!!\n");
     }
-    pr_info("Read BUTTON : GPIO_ = %d \n", gpio_state);
+    
+    if(strstr(rec_buf,"1")!=NULL){
+      pr_info("Read BUTTON : GPIO_ = %d \n", gpio_state);
+    }
     
   }
 
