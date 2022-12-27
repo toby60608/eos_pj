@@ -15,16 +15,18 @@
 #include <signal.h>
 #include "project.h"
 
-
+#define EXT_DEVICE_PATH "/dev/etx_device"
+#define EOS7_DRIVER_PATH "/dev/eos7_driver"
+#define GPIO_DRIVER_PATH EOS7_DRIVER_PATH
 
 int etx_device_fd=0;
 int gpio_init(void)
 {
-    etx_device_fd = open("/dev/etx_device", O_RDWR);
+    etx_device_fd = open(GPIO_DRIVER_PATH, O_RDWR);
 
     if (etx_device_fd == -1)
     {
-        printf("ERR: file open failed: %s\n","/dev/etx_device");
+        printf("ERR: file open failed: %s\n",GPIO_DRIVER_PATH);
         return -1;
     }
 //printf("File open done: fd=%d\n",etx_device_fd);
@@ -32,11 +34,11 @@ int gpio_init(void)
 }
 int write_a_digit_to_7segLED(int digit)
 {
-    if(digit == 0)
+    if(digit <= 0)
     {
         write(etx_device_fd, "seg_0", 6);
     }
-    else (digit > 0)
+    else if (digit > 0)
     {
         write(etx_device_fd, "seg_1", 6);
     }
@@ -67,8 +69,8 @@ typedef struct
 BTN_PARAMETER_T BtnParameter = 
 {
 	.exit = 0,
-	.HighLevelString = "btn_0",
-	.LowLevelString = "btn_1",
+	.HighLevelString = "btn_1",
+	.LowLevelString = "btn_0",
 };
 int sockFd, resultFd;
 pthread_mutex_t server_db_mutex;
@@ -78,9 +80,29 @@ typedef struct security_s{
     int security;   /* 1:open, 0:close */
     int door;       /* 1:open, 0:close */
     int alarm;      /* 1:open, 0:close */
+    union
+    {
+      struct
+      {
+        char* UnlockAndOpen;
+        char* UnlockAndClose;
+        char* Lock;
+        char* Alarm;
+      };
+      char* StringArray[4];
+    }CheckResponse;
 }security_t;
 
-security_t securityDB;
+security_t securityDB =
+{
+  .CheckResponse =
+  {
+    .UnlockAndOpen = "MSG: open unlock",
+    .UnlockAndClose = "MSG: close unlock",
+    .Lock = "MSG: close lock",
+    .Alarm = "MSG: alarm",
+  },
+};
 
 typedef struct threadInfo_s{
     int         used;
@@ -234,7 +256,28 @@ int user_cmd_handle(clientInfo_t *cinfo)
             continue;
         switch (cmd){
             case CLIENT_CMD_check:
-                str="MSG:here is check result";
+                if (securityDB.security == 0)
+                {
+                  if (securityDB.door == 0)
+                  {
+                    str = securityDB.CheckResponse.UnlockAndClose;
+                  }
+                  else
+                  {
+                    str = securityDB.CheckResponse.UnlockAndOpen;
+                  }
+                }
+                else
+                {
+                  if (securityDB.alarm == 0)
+                  {
+                    str = securityDB.CheckResponse.Lock;
+                  }
+                  else
+                  {
+                    str = securityDB.CheckResponse.Alarm;
+                  }
+                }
                 send(cinfo->fd, str,strlen(str), 0);
                 break;
             case CLIENT_CMD_lock:
@@ -372,6 +415,7 @@ int pj_client_handle(int socket_fd)
 
 void* Btn_Handler(void* data)
 {
+	printf("[Btn_Handler] Start\n");
 	char result[16];
 	while(BtnParameter.exit == 0)
 	{
@@ -380,12 +424,13 @@ void* Btn_Handler(void* data)
 		{
 			securityDB.door = 0;
 		}
-		else if (strcmp(result, BtnParameter.LowLevelString) == 1)
+		else if (strcmp(result, BtnParameter.HighLevelString) == 0)
 		{
 			securityDB.door = 1;
 		}
-		if ((securityDB.security != 0) && (securityDB.door != 0))
+		if ((securityDB.security != 0) && (securityDB.door != 0) && (securityDB.alarm == 0))
 		{
+			printf("Alarm\n");
 			securityDB.alarm = 1;
 			write(etx_device_fd,"buz_1",6);
 			char *StrArray[] = {"user", "18"};

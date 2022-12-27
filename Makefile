@@ -22,8 +22,8 @@ writer: writer.c project.h
 	gcc writer.c -o writer
 
 server: server.c SentryCamera/TestCamera.c project.h
-#	$(CROSS_COMPILE)gcc server.c -o server -lpthread
-	gcc server.c SentryCamera/TestCamera.c -o server -lpthread
+	$(CROSS_COMPILE)gcc server.c SentryCamera/TestCamera.c -o server -lpthread
+#	gcc server.c SentryCamera/TestCamera.c -o server -lpthread
 
 
 client: client.c project.h

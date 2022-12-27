@@ -20,7 +20,7 @@
 #define GPIO_16 16
 
 
-dev_t dev = 1;
+dev_t dev = 0;
 static struct class *dev_class;
 static struct cdev etx_cdev;
 static int __init etx_driver_init(void);
@@ -69,33 +69,18 @@ static int etx_release(struct inode *inode, struct file *file)
 */
 static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
 {
-
  char rec_buf[10];
-
- uint8_t gpio_state = 0;
- char str_gpio[5];
+ uint8_t gpio_state;
  
- if (copy_from_user(rec_buf, buf, len) > 0)
-  {
-    pr_err("ERROR: Not all the bytes have been copied from user\n");
-  }
-  
-  if(strstr(rec_buf,"btn")!=NULL){
+  if(buf !=NULL){
+    gpio_state = gpio_get_value(GPIO_16);
+		pr_info("Read BUTTON : GPIO_ = %d \n", gpio_state);
+    sprintf(rec_buf,"btn_%d",gpio_state);
     
-    strcpy(rec_buf,"btn_");
-    
-    gpio_state = gpio_get_value(GPIO_16); 
-    sprintf(str_gpio,"%d",gpio_state);
-    strcat(rec_buf,str_gpio);
-    
-    len = sizeof(rec_buf);
+    len = strlen(rec_buf);
     
     if (copy_to_user(buf, &rec_buf, len) > 0){
       pr_err("BUTTON ERROR: Copied to user fail !!!\n");
-    }
-    
-    if(strstr(rec_buf,"1")!=NULL){
-      pr_info("Read BUTTON : GPIO_16 = %d \n", gpio_state);
     }
     
   }
@@ -231,7 +216,7 @@ static int __init etx_driver_init(void)
   // configure the GPIO as output
   gpio_direction_output(GPIO_5, 0);
   gpio_direction_output(GPIO_6, 0);
-  gpio_direction_output(GPIO_16, 0);
+  gpio_direction_input(GPIO_16);
 
   /* Using this call the GPIO 21 will be visible in /sys/class/gpio/
   ** Now you can change the gpio values by using below commands also.
