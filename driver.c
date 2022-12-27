@@ -11,7 +11,7 @@
 #include <linux/string.h>
 
 // 7_SEG is connected to this GPIO
-#define GPIO_5 5
+#define GPIO_5 29
 
 // BUZZER  LED is connected to this GPIO
 #define GPIO_6 6
@@ -103,32 +103,30 @@ static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, 
   // uint8_t rec_buf[10] = {0};
 
   char rec_buf[10];
-  char *r=rec_buf;
-  char component[5];
-  char *c=component;
-  char act[2];
-  char *a=act ;
+  //char *r=rec_buf;
+  //char component[5];
+  //char *c=component;
+  //char act[2];
+  //char *a=act ;
+
 
   if (copy_from_user(rec_buf, buf, len) > 0)
   {
     pr_err("ERROR: Not all the bytes have been copied from user\n");
   }
 
-  strscpy(rec_buf, buf, sizeof(buf));
-  c=strsep(&r, "_");
+  //strscpy(rec_buf, buf, sizeof(buf));
+  //c=strsep(&r, "_");
 
-
- if (strstr(c, "seg") != NULL)
+ if (strstr(rec_buf, "seg") != NULL)
   {
 
-    a = strsep(&c, "_");
-    pr_info("Write Function : GPIO_5 Set = %s\n", act);
-    
-    if (strcmp(a, "1") == 0)
+    if (strstr(rec_buf, "1") !=NULL)
     {
       gpio_set_value(GPIO_5, 1);
+      
     }
-    else if (strcmp(a, "0") == 0)
+    else if (strstr(rec_buf, "0") !=NULL)
     {
       gpio_set_value(GPIO_5, 0);
     }
@@ -137,18 +135,17 @@ static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, 
       pr_err("LED ERROR: Please provide either 1 or 0 \n");
       return len;
     }
-  }
-  else if (strstr(c, "buz") != NULL)
-  {
-
-    a = strsep(&c, "_");
-    pr_info("Write Function : GPIO_6 Set = %s\n", act);
     
-    if (strcmp(a, "1") == 0)
+    pr_info("Write Function : GPIO_5 Set = %d\n",GPIO_5) ;
+  }
+  else if (strstr(rec_buf, "buz") != NULL)
+  {
+    
+    if (strstr(rec_buf, "1") !=NULL)
     {
       gpio_set_value(GPIO_6, 1);
     }
-    else if (strcmp(a, "0") == 0)
+    else if (strstr(rec_buf, "0") !=NULL)
     {
       gpio_set_value(GPIO_6, 0);
     }
@@ -157,6 +154,7 @@ static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, 
       pr_err("BUZZER ERROR: Please provide either 1 or 0 \n");
       return len;
     }
+      pr_info("Write Function : GPIO_6 Set = %d\n", GPIO_6);
   }
 
   return len;
