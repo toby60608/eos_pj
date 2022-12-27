@@ -28,12 +28,12 @@ sudo apt install raspberrypi-kernel-headers
 #當上面抓不到build表示太新請回復最新穩定版  
 sudo apt-get update; sudo apt-get install --reinstall raspberrypi-bootloader raspberrypi-kernel  
 
-------------------WiringPi只能在rpi板make---------------------  
+------------------WiringPi只能在rpi板make---------------------   
 1. cd /WiringPi/examples  
 2. make lcd-eos7  
-3.會產生出執行檔(system(sudo /path light_color line1))  
+3. 會產生出執行檔(system(sudo /path light_color line1))  
 
-------------------Run Prog---------------------  
+------------------Run Prog---------------------    
 1. make  
 2. sudo insmod driver.ko  
 3. cd /dev  
