@@ -82,7 +82,7 @@ static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t 
   
   if(strstr(rec_buf,"btn")!=NULL){
     
-	  strcpy(rec_buf,"btn_");
+    strcpy(rec_buf,"btn_");
     
     gpio_state = gpio_get_value(GPIO_16); 
     sprintf(str_gpio,"%d",gpio_state);
@@ -95,7 +95,7 @@ static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t 
     }
     
     if(strstr(rec_buf,"1")!=NULL){
-      pr_info("Read BUTTON : GPIO_ = %d \n", gpio_state);
+      pr_info("Read BUTTON : GPIO_16 = %d \n", gpio_state);
     }
     
   }
