@@ -34,12 +34,19 @@ sudo apt-get update; sudo apt-get install --reinstall raspberrypi-bootloader ras
 2. make lcd-eos7  
 3. 會產生出執行檔(system(sudo /path light_color line1))  
 
+---------cross compile時複製必要檔案------------
+1. ComparePicture.py
+2. server
+3. driver.ko
+4. SentryMode
+以上皆放在rpi的同一資料夾
+
 ------------------Run Prog---------------------    
-1. make  
-2. sudo insmod driver.ko  
-3. cd /dev  
-4. sudo chmod 777 eos7_driver  
-5. ./server port  
-6. ./client ServerIp port  
+1. make
+2. sudo insmod driver.ko
+3. cd /dev
+4. sudo chmod 777 eos7_driver
+5. ./server <port>
+6. ./client <ServerIp> <port>
  
 
