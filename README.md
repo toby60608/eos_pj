@@ -29,6 +29,7 @@ sudo apt install raspberrypi-kernel-headers
 sudo apt-get update; sudo apt-get install --reinstall raspberrypi-bootloader raspberrypi-kernel  
 
 ------------------WiringPi只能在rpi板make---------------------   
+0.需先開啟rpi板子的i2c  
 1. cd /WiringPi/examples  
 2. make lcd-eos7  
 3. 會產生出執行檔(system(sudo /path light_color line1))  
