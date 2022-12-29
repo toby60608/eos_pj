@@ -9,7 +9,7 @@ obj-m += driver.o
 KDIR = ../linux
 #KDIR = /lib/modules/$(shell uname -r)/build
 
-all: server client driver
+all: server client driver SentryMode
 
 mydev: mydev.c project.h
 	sudo make -C $(KDIR) M=$(shell pwd) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(ARCH) modules
@@ -25,15 +25,18 @@ server: server.c SentryCamera/TestCamera.c project.h
 	$(CROSS_COMPILE)gcc server.c SentryCamera/TestCamera.c -o server -lpthread
 #	gcc server.c SentryCamera/TestCamera.c -o server -lpthread
 
-
 client: client.c project.h
 #	$(CROSS_COMPILE)gcc client.c -o client
 	gcc client.c -o client
+
+SentryMode: SentryCamera/SentryMode.c SentryCamera/SentryMode.h
+	$(CROSS_COMPILE)gcc SentryCamera/SentryMode.c -o SentryMode -I -std=gnu99 -lpthread
 
 clean:
 	make -C $(KDIR) M=$(shell pwd) clean
 	@if [ -f "server" ]; then rm server ; fi
 	@if [ -f "client" ]; then rm client ; fi
 	@if [ -f "writer" ]; then rm writer ; fi
+	@if [ -f "SentryMode" ]; then rm SentryMode ; fi
 
 
